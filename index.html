@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v60 - Auto Calibration Fix</title>
+    <title>Legato Trainer v61 - Setup Fix</title>
     <style>
-        /* --- v60 STYLE --- */
+        /* --- v61 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -231,9 +231,10 @@
         /* OVERLAY */
         .overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.95); z-index: 9999; 
+            background: rgba(0,0,0,0.98); z-index: 9999; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             animation: fadeIn 0.3s;
+            cursor: default; /* Reset cursor */
         }
         .overlay h2 { font-size: 2.0rem; color: var(--c-warn); margin-bottom: 15px; text-align: center; }
         .overlay p { color: #ccc; margin-bottom: 30px; font-size: 0.8rem; text-align: center; line-height: 1.5; max-width: 80%; }
@@ -245,6 +246,7 @@
             box-shadow: 0 0 25px rgba(76, 217, 100, 0.6);
             margin-bottom: 20px;
         }
+        .btn-calib-start:active { transform: scale(0.95); }
 
         .btn-restart { 
             padding: 15px 40px; border-radius: 30px; border: none; 
@@ -253,13 +255,14 @@
             box-shadow: 0 0 20px rgba(0, 123, 255, 0.5);
         }
         
-        .calib-progress { font-size: 2rem; font-weight: 800; color: #fff; margin-top: 20px; min-height: 40px; }
+        .calib-progress { font-size: 3rem; font-weight: 800; color: #fff; margin-top: 20px; min-height: 40px; }
+        .skip-link { margin-top: 20px; color: #666; font-size: 0.7rem; text-decoration: underline; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v60</h1>
+    <h1>LEGATO TRAINER v61</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -351,12 +354,13 @@
 
 <div id="overlay" class="overlay" style="display:flex">
     <h2 id="ovTitle">SETUP</h2>
-    <p id="ovDesc">Set volume MAX & unmute.<br>Tap to calibrate & start.</p>
+    <p id="ovDesc">Set volume MAX & unmute.<br>Tap button to calibrate.</p>
     
     <button id="btnCalibStart" class="btn-calib-start">TAP TO START</button>
-    <button id="btnRestart" class="btn-restart" style="display:none">CONTINUE</button>
-    
     <div id="calibCount" class="calib-progress"></div>
+    
+    <button id="btnRestart" class="btn-restart" style="display:none">CONTINUE</button>
+    <div id="skipLink" class="skip-link">SKIP CALIBRATION</div>
 </div>
 
 <script>
@@ -393,6 +397,7 @@ const ui = {
     
     btnCalibStart: document.getElementById('btnCalibStart'),
     btnReCalib: document.getElementById('btnReCalib'),
+    skipLink: document.getElementById('skipLink'),
     
     bpm: document.getElementById('inBpm'),
     groove: document.getElementById('grooveSelect'),
@@ -437,7 +442,8 @@ async function initAudio() {
             engine.analyser.fftSize = 1024;
             engine.mic.connect(engine.analyser);
         } catch(e) { 
-            alert("Microphone Access Denied. Please allow mic access."); 
+            console.error(e);
+            alert("Microphone Access Denied. Check Settings."); 
             return false; 
         }
     }
@@ -446,21 +452,30 @@ async function initAudio() {
 
 // --- 2. CALIBRATION SEQUENCE ---
 async function runCalibrationSequence() {
-    // Init Audio
+    // 1. Change Button Text to show we are working
+    ui.btnCalibStart.innerText = "Allow Mic...";
+    
+    // 2. Init Audio (This prompts permission)
     const ready = await initAudio();
-    if(!ready) return;
+    
+    // 3. If failed, stop here
+    if(!ready) {
+        ui.btnCalibStart.innerText = "Mic Error (Retry)";
+        return;
+    }
 
-    // UI Setup
+    // 4. Success: Hide button & Start
     engine.isCalibrating = true;
     engine.running = false; // Pause game logic
     engine.calibHits = [];
     engine.calibNoisePeak = 0;
     
     ui.btnCalibStart.style.display = 'none';
+    ui.skipLink.style.display = 'none';
     ui.btnRestart.style.display = 'none';
     ui.ovTitle.innerText = "CALIBRATING";
-    ui.ovDesc.innerText = "Measuring Latency & Sensitivity...";
-    ui.calibCount.innerText = "READY...";
+    ui.ovDesc.innerText = "Keep quiet... Listening...";
+    ui.calibCount.innerText = "READY";
 
     // Wait 1 sec then start 4 clicks
     setTimeout(() => {
@@ -570,12 +585,17 @@ function finalizeCalibration() {
     ui.inSens.value = sensVal;
     
     // --- START GAME ---
+    closeOverlayAndStart();
+}
+
+function closeOverlayAndStart() {
     ui.overlay.style.display = 'none';
     
     // Reset overlay text for next time (Clear screen use)
     ui.ovTitle.innerText = "CLEAR!";
     ui.ovDesc.innerText = "Excellent Rhythm & Control";
     ui.btnCalibStart.style.display = 'none';
+    ui.skipLink.style.display = 'none';
     ui.btnRestart.style.display = 'block';
     ui.calibCount.innerText = "";
     
@@ -607,6 +627,13 @@ function startGame() {
 
 // --- EVENT LISTENERS ---
 ui.btnCalibStart.addEventListener('click', runCalibrationSequence);
+
+// Manual Bypass
+ui.skipLink.addEventListener('click', async () => {
+    const ready = await initAudio();
+    if(ready) closeOverlayAndStart();
+});
+
 ui.btnReCalib.addEventListener('click', () => {
     // Stop game if running
     if(engine.running) {
@@ -618,18 +645,18 @@ ui.btnReCalib.addEventListener('click', () => {
     ui.overlay.style.display = 'flex';
     ui.ovTitle.innerText = "SETUP";
     ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>Tap to calibrate.";
+    ui.btnCalibStart.innerText = "TAP TO START"; // Reset text
     ui.btnCalibStart.style.display = 'block';
+    ui.skipLink.style.display = 'block';
     ui.btnRestart.style.display = 'none';
     ui.calibCount.innerText = "";
 });
 
-ui.start.addEventListener('click', () => {
+ui.start.addEventListener('click', async () => {
     if(!engine.running) {
-        // If already calibrated once, just start. Else calibrate?
-        // For simplicity, START button just starts game (using current settings)
-        // Assuming initAudio called via Calib first.
-        // But if user skips calib... we need init.
-        initAudio().then(() => startGame());
+        // If user stopped and wants to start again without calib
+        const ready = await initAudio();
+        if(ready) startGame();
     }
 });
 
@@ -646,7 +673,7 @@ ui.restart.addEventListener('click', () => {
 // Allow clicking background to close CLEAR screen (but not during Calib)
 ui.overlay.addEventListener('click', (e) => {
     if(engine.isCalibrating) return;
-    if(e.target.tagName === "BUTTON") return;
+    if(e.target.tagName === "BUTTON" || e.target.id === "skipLink") return;
     // If it is CLEAR screen (restart btn visible), close it
     if(ui.btnRestart.style.display === 'block') {
         ui.overlay.style.display = 'none';
@@ -870,6 +897,7 @@ function finishGame() {
     ui.ovTitle.innerText = "CLEAR!";
     ui.ovDesc.innerText = "Excellent Rhythm & Control";
     ui.btnCalibStart.style.display = 'none';
+    ui.skipLink.style.display = 'none';
     ui.btnRestart.style.display = 'block';
     ui.calibCount.innerText = "";
 }
