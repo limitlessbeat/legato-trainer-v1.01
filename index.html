@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v67 - iOS Latency Tuned</title>
+    <title>Legato Trainer v68 - Fine Tuning UI</title>
     <style>
-        /* --- v67 STYLE --- */
+        /* --- v68 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -21,7 +21,7 @@
             --c-poor: #666;
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
         body {
             font-family: "SF Mono", "Roboto Mono", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -155,18 +155,29 @@
         /* SETTINGS */
         details { flex-shrink: 0; padding: 2px 10px; background: #080808; border-top: 1px solid #222; }
         summary { color: #555; font-size: 0.6rem; text-align: center; padding: 4px; cursor: pointer; list-style: none; }
-        .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 4px; }
+        .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 6px; }
+        
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
-        .setting-row { display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-end; }
-        input[type=range] { width: 100px; accent-color: var(--c-accent); }
+        
+        /* Updated Setting Row for +/- buttons */
+        .setting-row { display: flex; align-items: center; gap: 8px; flex-grow: 1; justify-content: flex-end; }
+        
+        input[type=range] { width: 90px; accent-color: var(--c-accent); }
         .btn-mini { padding: 4px 10px; border-radius: 15px; border: 1px solid #555; background: #333; color: #fff; font-size: 0.6rem; font-weight: bold; cursor: pointer; }
-        .btn-adj { padding: 2px 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: #fff; font-size: 0.7rem; cursor: pointer; }
+        
+        .btn-adj { 
+            padding: 0; width: 24px; height: 24px; border-radius: 4px; 
+            border: 1px solid #444; background: #222; color: #fff; 
+            font-size: 1.0rem; font-weight: bold; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-adj:active { background: #444; }
 
         /* CONTROLS */
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
             display: flex; gap: 8px; 
-            padding: 8px 8px calc(28px + env(safe-area-inset-bottom)) 8px;
+            padding: 8px 8px calc(28px + var(--safe-bottom)) 8px;
             flex-shrink: 0; position: relative;
         }
         .bpm-box { background: #222; border-radius: 8px; width: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -181,7 +192,7 @@
         .btn-stop.active { opacity: 1; pointer-events: auto; }
 
         .credit {
-            position: absolute; bottom: calc(4px + env(safe-area-inset-bottom)); left: 0; width: 100%;
+            position: absolute; bottom: calc(4px + var(--safe-bottom)); left: 0; width: 100%;
             text-align: center; font-size: 0.5rem; line-height: 1.3; color: #444; pointer-events: none;
             z-index: 20; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase;
         }
@@ -195,6 +206,7 @@
         }
         .overlay h2 { font-size: 2.0rem; color: var(--c-warn); margin-bottom: 15px; text-align: center; }
         .overlay p { color: #ccc; margin-bottom: 30px; font-size: 0.8rem; text-align: center; line-height: 1.5; max-width: 80%; }
+        
         .btn-calib-start {
             padding: 20px 40px; border-radius: 40px; border: none;
             font-size: 1.2rem; font-weight: 800; cursor: pointer;
@@ -202,12 +214,14 @@
             box-shadow: 0 0 25px rgba(76, 217, 100, 0.6); margin-bottom: 20px; -webkit-appearance: none;
         }
         .btn-calib-start:disabled { background-color: #555; color: #888; box-shadow: none; }
+        
         .btn-restart { 
             padding: 15px 40px; border-radius: 30px; border: none; 
             font-size: 1.2rem; font-weight: bold; cursor: pointer; 
             background: var(--c-accent); color: #fff; 
             box-shadow: 0 0 20px rgba(0, 123, 255, 0.5); margin-top: 10px;
         }
+        
         .btn-close {
             position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%;
             background: #333; border: 1px solid #555; color: #fff; font-size: 1.5rem; line-height: 40px; 
@@ -226,7 +240,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v67</h1>
+    <h1>LEGATO TRAINER v68</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -288,8 +302,25 @@
     <summary>SETTINGS ▼</summary>
     <div class="settings-wrap">
         <div class="setting-item"><span>Auto Calib</span> <button id="btnReCalib" class="btn-mini">RUN</button></div>
-        <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="50"></div>
-        <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
+        
+        <div class="setting-item">
+            <span>Vol</span>
+            <div class="setting-row">
+                <button id="btnVolMinus" class="btn-adj">-</button>
+                <input type="range" id="inVol" min="0" max="100" value="70">
+                <button id="btnVolPlus" class="btn-adj">+</button>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <span>Sens</span>
+            <div class="setting-row">
+                <button id="btnSensMinus" class="btn-adj">-</button>
+                <input type="range" id="inSens" min="1" max="50" value="10">
+                <button id="btnSensPlus" class="btn-adj">+</button>
+            </div>
+        </div>
+
         <div class="setting-item">
             <span>Latency</span>
             <div class="setting-row">
@@ -317,7 +348,7 @@
 <div id="overlay" class="overlay" style="display:flex">
     <div id="btnCloseOverlay" class="btn-close">×</div>
     <h2 id="ovTitle">SETUP</h2>
-    <p id="ovDesc">Set volume MAX & unmute.<br>Tap to calibrate.</p>
+    <p id="ovDesc">Set volume MAX & unmute.<br>Measuring Latency...</p>
     <button id="btnCalibStart" class="btn-calib-start">TAP TO START</button>
     <div id="calibCount" class="calib-progress"></div>
     <button id="btnRestart" class="btn-restart" style="display:none">CONTINUE</button>
@@ -325,14 +356,20 @@
 </div>
 
 <script>
+/**
+ * CONFIGURATION
+ */
 const CONFIG = {
     PATTERNS: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
-    THRESH_DEFAULT: 0.012, 
+    THRESH_DEFAULT: 0.02, // Matches Sens 10
     LATENCY_DEFAULT: 0.240,
-    CALIB_CLICKS: 8, // Increased for better sample size
+    CALIB_CLICKS: 8,
     NOISE_LIMIT: 180
 };
 
+/**
+ * SYSTEM MODULES
+ */
 const AudioSys = {
     ctx: null, mic: null, analyser: null, gain: null,
     
@@ -357,7 +394,7 @@ const AudioSys = {
                 this.mic.connect(this.analyser);
                 return true;
             } catch(e) {
-                alert("Mic access needed.");
+                alert("Mic access needed for training.");
                 return false;
             }
         }
@@ -400,14 +437,17 @@ const View = {
         bar: document.getElementById('progressBar'),
         canvas: document.getElementById('scope'),
         ctx: document.getElementById('scope').getContext('2d'),
+        
         valTime: document.getElementById('valTime'),
         subTime: document.getElementById('subTime'),
         cardTime: document.getElementById('cardTime'),
         valLeg: document.getElementById('valLegato'),
         subLeg: document.getElementById('subLegato'),
         cardLeg: document.getElementById('cardLegato'),
+        
         hist: document.getElementById('histBody'),
         histArea: document.querySelector('.history-area'),
+        
         overlay: document.getElementById('overlay'),
         ovTitle: document.getElementById('ovTitle'),
         ovDesc: document.getElementById('ovDesc'),
@@ -416,13 +456,20 @@ const View = {
         skipLink: document.getElementById('skipLink'),
         calibCount: document.getElementById('calibCount'),
         closeOverlay: document.getElementById('btnCloseOverlay'),
+        
         start: document.getElementById('btnStart'),
         stop: document.getElementById('btnStop'),
+        
         inVol: document.getElementById('inVol'),
         inSens: document.getElementById('inSens'),
         inLat: document.getElementById('inLat'),
         inBpm: document.getElementById('inBpm'),
         groove: document.getElementById('grooveSelect'),
+        
+        btnVolMinus: document.getElementById('btnVolMinus'),
+        btnVolPlus: document.getElementById('btnVolPlus'),
+        btnSensMinus: document.getElementById('btnSensMinus'),
+        btnSensPlus: document.getElementById('btnSensPlus'),
         btnLatMinus: document.getElementById('btnLatMinus'),
         btnLatPlus: document.getElementById('btnLatPlus')
     },
@@ -468,6 +515,7 @@ const View = {
         const w = this.els.canvas.width;
         const h = this.els.canvas.height;
         const ctx = this.els.ctx;
+        
         ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
         const thY = h - (thresh * this.visualScale);
         const safeThY = Math.max(0, thY);
@@ -567,8 +615,9 @@ const Game = {
     lastBeatIdx: -1,
     noiseCounter: 0,
     
-    vol: 0.5,
-    thresh: CONFIG.THRESH_DEFAULT,
+    // UPDATED DEFAULTS
+    vol: 0.7, // 70
+    thresh: 0.02, // Sens 10
     latency: CONFIG.LATENCY_DEFAULT,
     bpm: 90,
     pattern: 1,
@@ -599,7 +648,7 @@ const Game = {
         View.els.calibBtn.style.display = 'none';
         View.els.skipLink.style.display = 'none';
         View.els.ovTitle.innerText = "CALIBRATING";
-        View.els.ovDesc.innerText = "Listening...";
+        View.els.ovDesc.innerText = "Latency check...";
         View.els.calibCount.innerText = "READY";
 
         setTimeout(() => {
@@ -622,8 +671,7 @@ const Game = {
     calibLoop() {
         if(!this.calibrating) return;
         const rms = AudioSys.getRMS();
-        // Using lower threshold for calibration
-        if (rms > 0.02) {
+        if (rms > 0.05) {
             const now = AudioSys.ctx.currentTime;
             const hit = this.calibHits[this.calibHits.length-1];
             if(hit && !hit.recv && (now - hit.send < 0.5)) {
@@ -635,10 +683,10 @@ const Game = {
     
     finishCalibration() {
         this.calibrating = false;
-        let totalLat = 0, count = 0;
+        let count = 0;
         let minLat = Infinity; 
         
-        // Discard first 2 hits (warmup)
+        // Discard warmup
         const validHits = this.calibHits.slice(2);
         
         validHits.forEach(h => {
@@ -650,10 +698,7 @@ const Game = {
         });
         
         if (count > 0) {
-            // FIX: Use Minimum detected latency * 0.4 (Heuristic correction)
-            // Example: Detected 240ms roundtrip -> Apply 96ms compensation
-            let result = minLat * 0.4;
-            
+            let result = minLat * 0.4; // Heuristic
             if(result < 0.01) result = 0.01; 
             if(result > 0.5) result = 0.5;
             this.latency = result;
@@ -813,16 +858,13 @@ const Game = {
             if(dur < 0.03) return;
             
             t.processed = true;
-            
             let judge = "SHORT";
             if(pct >= 85) judge = "EXCELLENT";
             else if(pct >= 60) judge = "OK";
             
             View.renderResult('legato', pct+"%", judge);
-            
             this.cycleHits.push({ t: t.lastDiff, l: pct });
             this.totalHits++;
-            
             const diffMs = t.lastJudge ? Math.round((t.actualStart - this.latency - t.time) * 1000) : "--";
             View.addHistory(this.totalHits, judge, pct, t.lastJudge || "MISS", diffMs);
         }
@@ -832,7 +874,6 @@ const Game = {
         const cycle = this.beatCount % 16;
         const pct = (cycle / 16) * 100;
         View.els.bar.style.width = pct + "%";
-        
         if(cycle === 0 && this.beatCount > 0) {
             const hits = this.cycleHits.length;
             if(hits < 4) {
@@ -870,6 +911,11 @@ const Game = {
 
 // --- BINDINGS ---
 View.init();
+
+// Init values from updated defaults
+View.els.inVol.value = Game.vol * 100;
+View.els.inSens.value = Game.thresh * 500;
+
 View.els.inVol.addEventListener('input', e => { 
     Game.vol = e.target.value/100 || 0.0001; 
     if(AudioSys.gain) AudioSys.gain.gain.value = Game.vol; 
@@ -882,7 +928,36 @@ View.els.groove.addEventListener('change', e => {
     Game.pIndex = 0;
 });
 
-// Fine Tuning
+// Buttons (+/-)
+// VOL
+View.els.btnVolMinus.addEventListener('click', () => {
+    let val = parseInt(View.els.inVol.value) - 5;
+    if(val < 0) val = 0;
+    View.els.inVol.value = val;
+    Game.vol = val / 100 || 0.0001;
+    if(AudioSys.gain) AudioSys.gain.gain.value = Game.vol;
+});
+View.els.btnVolPlus.addEventListener('click', () => {
+    let val = parseInt(View.els.inVol.value) + 5;
+    if(val > 100) val = 100;
+    View.els.inVol.value = val;
+    Game.vol = val / 100;
+    if(AudioSys.gain) AudioSys.gain.gain.value = Game.vol;
+});
+// SENS
+View.els.btnSensMinus.addEventListener('click', () => {
+    let val = parseInt(View.els.inSens.value) - 1;
+    if(val < 1) val = 1;
+    View.els.inSens.value = val;
+    Game.thresh = val / 500;
+});
+View.els.btnSensPlus.addEventListener('click', () => {
+    let val = parseInt(View.els.inSens.value) + 1;
+    if(val > 50) val = 50;
+    View.els.inSens.value = val;
+    Game.thresh = val / 500;
+});
+// LATENCY
 View.els.btnLatMinus.addEventListener('click', () => {
     let val = parseInt(View.els.inLat.value) - 5;
     if(val < 0) val = 0;
@@ -940,7 +1015,6 @@ View.els.overlay.addEventListener('click', e => {
          View.resetGameUI();
     }
 });
-
 </script>
 </body>
 </html>
