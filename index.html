@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v44 - Seamless Groove</title>
+    <title>Legato Trainer v45 - Seamless Fix</title>
     <style>
-        /* --- v44 STYLE --- */
+        /* --- v45 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -209,7 +209,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v44</h1>
+    <h1>LEGATO TRAINER v45</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -310,9 +310,9 @@ const engine = {
     
     patterns: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
     currentPattern: 1, 
-    pendingPattern: 1, // FIX: For seamless switching
-    pIndex: 0, beatCount: 0, 
-    totalNoteCount: 0,
+    pendingPattern: 1, // FIX: Holds the next pattern until beat finishes
+    pIndex: 0, beatCount: 0,
+    totalNoteCount: 0, 
     
     targetQueue: [], vol: 0.5, 
     thresh: 0.012, 
@@ -386,7 +386,7 @@ function scheduleNote(time) {
 
     engine.targetQueue = engine.targetQueue.filter(t => t.time > engine.ctx.currentTime - 1.0);
     
-    // Use currentPattern
+    // Use CURRENT pattern for scheduling (not pending)
     const pattern = engine.patterns[engine.currentPattern];
     const dur = (60 / engine.bpm) * pattern[engine.pIndex];
     
@@ -402,14 +402,19 @@ function advanceNote() {
     engine.nextTime += secondsPerBeat * pattern[engine.pIndex];
     
     engine.pIndex++;
-    // Check if pattern finished
+    
+    // Check if pattern finished (Beat Boundary)
     if (engine.pIndex >= pattern.length) {
         engine.pIndex = 0;
         engine.beatCount++;
         
-        // FIX: Switch pending groove seamlessly here (at start of new beat)
-        if (engine.pendingPattern !== engine.currentPattern) {
+        // QUANTIZED SWITCH: Apply pending groove here
+        if (engine.currentPattern !== engine.pendingPattern) {
             engine.currentPattern = engine.pendingPattern;
+            if (engine.gameActive) {
+                ui.msg.innerText = "GROOVE CHANGED!";
+                setTimeout(() => { if(engine.gameActive) ui.msg.innerText = "COLLECT 4 STARS"; }, 1000);
+            }
         }
         
         if (engine.gameActive) updateGameProgress();
@@ -682,7 +687,7 @@ ui.start.addEventListener('click', async () => {
     engine.running = true;
     engine.bpm = parseInt(ui.bpm.value);
     engine.currentPattern = parseInt(ui.groove.value);
-    engine.pendingPattern = engine.currentPattern;
+    engine.pendingPattern = engine.currentPattern; // Initialize Pending
     
     engine.pIndex = 0; engine.beatCount = 0; engine.totalNoteCount = 0;
     
@@ -709,9 +714,14 @@ ui.stop.addEventListener('click', () => {
 
 ui.restart.addEventListener('click', resetToReady);
 
-// FIX: Use pendingPattern for smooth switching
+// FIX: Event listener ONLY updates pendingPattern
 ui.groove.addEventListener('change', () => {
     engine.pendingPattern = parseInt(ui.groove.value);
+    if (engine.running) {
+        ui.msg.innerText = "SWITCHING...";
+        ui.msg.style.color = "#ffcc00";
+        ui.msg.classList.add('blink');
+    }
 });
 
 ui.inVol.addEventListener('input', e => { 
