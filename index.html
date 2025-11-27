@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v54 - Auto Setup</title>
+    <title>Legato Trainer v55 - Full Auto Init</title>
     <style>
-        /* --- v54 STYLE --- */
+        /* --- v55 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -19,7 +19,7 @@
             --c-warn: #ffcc00;
             --c-bad: #ff3b30;
             --c-poor: #666;
-            --c-calib: #9d00ff; /* Calibration Color */
+            --c-calib: #9d00ff;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -181,7 +181,7 @@
         .col-leg { width: 25%; font-weight: 800; font-size: 0.7rem; text-align: right;}
         .col-scr { width: 15%; font-weight: bold; text-align: right; }
 
-        /* SETTINGS & AUTO SETUP */
+        /* SETTINGS */
         details { flex-shrink: 0; padding: 2px 10px; background: #080808; border-top: 1px solid #222; }
         summary { color: #555; font-size: 0.6rem; text-align: center; padding: 4px; cursor: pointer; list-style: none; }
         .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 4px; }
@@ -246,7 +246,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v54</h1>
+    <h1>LEGATO TRAINER v55</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -315,10 +315,9 @@
 <details>
     <summary>SETTINGS ▼</summary>
     <div class="settings-wrap">
-        <button id="btnCalib" class="btn-calib">🪄 AUTO SETUP (Sens & Latency)</button>
+        <button id="btnCalib" class="btn-calib">🪄 RE-CALIBRATE (Sens & Latency)</button>
         
-        <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="50"></div>
-        <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
+        <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="100"></div> <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
         <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="240"></div>
     </div>
 </details>
@@ -348,7 +347,8 @@ const engine = {
     ctx: null, mic: null, analyser: null, gain: null,
     running: false, 
     gameActive: false, 
-    calibMode: false, // 'noise' or 'latency'
+    audioReady: false, // Track if audio context is initialized
+    calibMode: false, 
     
     bpm: 90, nextTime: 0,
     startTime: 0, 
@@ -356,7 +356,7 @@ const engine = {
     patterns: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
     currentPattern: 1, pIndex: 0, beatCount: 0,
     
-    targetQueue: [], vol: 0.5, 
+    targetQueue: [], vol: 1.0, // Default Max
     thresh: 0.012, 
     latency: 0.240,
     noteOn: false, noteStart: 0, lastHitId: -1,
@@ -402,6 +402,12 @@ async function initAudio() {
     engine.ctx = new AC();
     engine.gain = engine.ctx.createGain();
     engine.gain.connect(engine.ctx.destination);
+    
+    // Force Max Volume for setup/game
+    engine.gain.gain.value = 1.0;
+    engine.vol = 1.0;
+    ui.inVol.value = 100;
+
     if (engine.ctx.state === 'suspended') await engine.ctx.resume();
     
     try {
@@ -412,8 +418,49 @@ async function initAudio() {
         engine.analyser = engine.ctx.createAnalyser();
         engine.analyser.fftSize = 1024;
         engine.mic.connect(engine.analyser);
+        engine.audioReady = true;
     } catch(e) { alert("Microphone Access Denied"); return false; }
     return true;
+}
+
+// --- START / AUTO SETUP LOGIC ---
+ui.start.addEventListener('click', async () => {
+    if (engine.running) return;
+
+    // FIRST TIME START -> Auto Setup
+    if (!engine.audioReady) {
+        const ready = await initAudio();
+        if(ready) {
+            startAutoSetup(true); // true = start game after
+        }
+    } else {
+        // Normal Start
+        startGame();
+    }
+});
+
+function startGame() {
+    resetToReady();
+    engine.running = true;
+    engine.bpm = parseInt(ui.bpm.value);
+    engine.currentPattern = parseInt(ui.groove.value);
+    engine.pIndex = 0; engine.beatCount = 0; 
+    
+    engine.nextTime = engine.ctx.currentTime + 0.1;
+    engine.startTime = engine.nextTime;
+    
+    engine.cycleHits = []; engine.targetQueue = [];
+    
+    // Ensure thresh is synced (in case auto setup changed it)
+    // engine.thresh is already set by slider or auto setup
+    
+    engine.noteOn = false; 
+    engine.noteStart = 0; 
+    engine.lastHitId = -1; 
+    engine.lastBeatIndex = -1;
+    
+    ui.start.style.display = 'none'; ui.stop.classList.add('active');
+    scheduler(); detectionLoop();
 }
 
 function scheduler() {
@@ -478,26 +525,29 @@ function triggerImpact(side) {
     else ui.flashR.classList.add('hit-impact');
 }
 
-// --- AUTO CALIBRATION LOGIC ---
-async function startAutoSetup() {
-    const ready = await initAudio();
-    if(!ready) return;
+// --- AUTO CALIBRATION ---
+async function startAutoSetup(autoStartGame = false) {
+    if (!engine.audioReady) await initAudio();
     
-    // Step 1: Noise Calibration
+    // Ensure Volume is MAX
+    engine.vol = 1.0; 
+    if(engine.gain) engine.gain.gain.value = 1.0;
+    ui.inVol.value = 100;
+
     engine.calibMode = 'noise';
     engine.calibMaxRms = 0;
     engine.calibStartTime = engine.ctx.currentTime;
     
     ui.overlay.style.display = 'flex';
-    ui.ovTitle.innerText = "QUIET PLEASE";
+    ui.ovTitle.innerText = "AUTO SETUP";
     ui.ovTitle.style.color = "var(--c-calib)";
-    ui.ovMsg.innerText = "Measuring room noise...\n(2 seconds)";
-    ui.btnRestart.style.display = 'none'; // Hide button during process
+    ui.ovMsg.innerText = "Measuring room noise...\n(Shhh... 2 seconds)";
+    ui.btnRestart.style.display = 'none'; 
     
-    requestAnimationFrame(calibrationLoop);
+    requestAnimationFrame((t) => calibrationLoop(t, autoStartGame));
 }
 
-function calibrationLoop() {
+function calibrationLoop(t, autoStartGame) {
     const now = engine.ctx.currentTime;
     const data = new Uint8Array(engine.analyser.frequencyBinCount);
     engine.analyser.getByteTimeDomainData(data);
@@ -505,58 +555,48 @@ function calibrationLoop() {
     for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
     const rms = Math.sqrt(sum / data.length);
     
-    drawScope(rms); // Show wave so user knows it's working
+    drawScope(rms); 
 
     if (engine.calibMode === 'noise') {
         if (rms > engine.calibMaxRms) engine.calibMaxRms = rms;
         
         if (now - engine.calibStartTime > 2.0) {
-            // Apply Noise Thresh
-            // Safety margin: 1.5x max noise, minimum 0.005
+            // 1. Set Threshold
             let newThresh = Math.max(engine.calibMaxRms * 1.5, 0.005);
             engine.thresh = newThresh;
-            // Update slider UI
             ui.inSens.value = Math.min(50, Math.round(newThresh * 500));
             
-            // Move to Step 2: Latency
+            // 2. Prepare Latency Test
             engine.calibMode = 'latency_wait';
-            ui.ovTitle.innerText = "LATENCY TEST";
-            ui.ovMsg.innerText = "Turn up volume.\nPlaying a beep in 1s...";
-            setTimeout(() => {
-                playCalibBeep();
-            }, 1000);
+            ui.ovMsg.innerText = "Checking Latency...\n(Listening for beep)";
+            setTimeout(() => playCalibBeep(autoStartGame), 1000);
         } else {
-            requestAnimationFrame(calibrationLoop);
+            requestAnimationFrame((t) => calibrationLoop(t, autoStartGame));
         }
     } 
     else if (engine.calibMode === 'latency_listen') {
-        // Wait for input spike above threshold
-        if (rms > engine.thresh * 2.0) { // Strong signal needed
+        if (rms > engine.thresh * 2.0) {
             const diff = now - engine.calibBeepTime;
-            // Valid latency usually 0.01 - 0.5s
             if (diff > 0.01 && diff < 0.5) {
                 engine.latency = diff;
                 ui.inLat.value = Math.round(diff * 1000);
-                finishCalibration("SUCCESS", `Sens: ${ui.inSens.value} / Latency: ${ui.inLat.value}ms`);
+                finishCalibration("SUCCESS", `Ready!\nSens: ${Math.round(engine.thresh*500)} / Latency: ${Math.round(diff*1000)}ms`, autoStartGame);
                 return;
             }
         }
-        // Timeout 1s
         if (now - engine.calibBeepTime > 1.0) {
-            finishCalibration("TIMEOUT", "Could not hear beep.\nUsed Noise settings only.");
+            finishCalibration("TIMEOUT", "Could not hear beep.\nUsing default latency.", autoStartGame);
             return;
         }
-        requestAnimationFrame(calibrationLoop);
+        requestAnimationFrame((t) => calibrationLoop(t, autoStartGame));
     }
 }
 
-function playCalibBeep() {
+function playCalibBeep(autoStartGame) {
     engine.calibMode = 'latency_listen';
-    ui.ovMsg.innerText = "Listening...";
-    
     const osc = engine.ctx.createOscillator();
     const g = engine.ctx.createGain();
-    osc.frequency.value = 2000; // Sharp beep
+    osc.frequency.value = 2500; 
     g.gain.value = 1.0;
     osc.connect(g); g.connect(engine.gain);
     
@@ -564,21 +604,28 @@ function playCalibBeep() {
     osc.start(engine.calibBeepTime);
     osc.stop(engine.calibBeepTime + 0.05);
     
-    requestAnimationFrame(calibrationLoop);
+    requestAnimationFrame((t) => calibrationLoop(t, autoStartGame));
 }
 
-function finishCalibration(status, msg) {
+function finishCalibration(status, msg, autoStartGame) {
     engine.calibMode = false;
-    ui.ovTitle.innerText = status === "SUCCESS" ? "SETUP DONE!" : "SETUP PARTIAL";
-    ui.ovTitle.style.color = status === "SUCCESS" ? "var(--c-good)" : "var(--c-warn)";
-    ui.ovMsg.innerText = msg;
     
-    ui.btnRestart.style.display = 'block';
-    ui.btnRestart.innerText = "OK";
-    ui.btnRestart.onclick = () => {
+    if (autoStartGame) {
+        // Immediately start game if this was the initial flow
         ui.overlay.style.display = 'none';
-        ui.btnRestart.onclick = resetToReady; // Restore normal behavior
-    };
+        startGame();
+    } else {
+        // Manual setup finished
+        ui.ovTitle.innerText = status === "SUCCESS" ? "SETUP COMPLETE" : "SETUP INFO";
+        ui.ovTitle.style.color = status === "SUCCESS" ? "var(--c-good)" : "var(--c-warn)";
+        ui.ovMsg.innerText = msg;
+        ui.btnRestart.style.display = 'block';
+        ui.btnRestart.innerText = "OK";
+        ui.btnRestart.onclick = () => {
+            ui.overlay.style.display = 'none';
+            ui.btnRestart.onclick = resetToReady;
+        };
+    }
 }
 
 function detectionLoop() {
@@ -818,31 +865,8 @@ function drawScope(rms) {
     ctxScope.fillRect(w/2 - 20, h - barH, 40, barH);
 }
 
-ui.start.addEventListener('click', async () => {
-    if(engine.running) return;
-    const ready = await initAudio();
-    if(!ready) return;
-    resetToReady();
-    
-    engine.running = true;
-    engine.bpm = parseInt(ui.bpm.value);
-    engine.currentPattern = parseInt(ui.groove.value);
-    engine.pIndex = 0; engine.beatCount = 0; 
-    
-    engine.nextTime = engine.ctx.currentTime + 0.1;
-    engine.startTime = engine.nextTime;
-    
-    engine.cycleHits = []; engine.targetQueue = [];
-    engine.thresh = ui.inSens.value / 500;
-    
-    engine.noteOn = false; 
-    engine.noteStart = 0; 
-    engine.lastHitId = -1; 
-    engine.lastBeatIndex = -1;
-    
-    ui.start.style.display = 'none'; ui.stop.classList.add('active');
-    scheduler(); detectionLoop();
-});
+// Re-bind listeners for new Calib button
+ui.calib.addEventListener('click', () => startAutoSetup(false)); // Manual mode
 
 ui.stop.addEventListener('click', () => {
     engine.running = false; clearTimeout(engine.timerID);
@@ -851,7 +875,6 @@ ui.stop.addEventListener('click', () => {
 });
 
 ui.restart.addEventListener('click', resetToReady);
-ui.calib.addEventListener('click', startAutoSetup);
 
 ui.groove.addEventListener('change', () => {
     engine.currentPattern = parseInt(ui.groove.value);
