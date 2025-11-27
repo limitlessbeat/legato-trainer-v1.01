@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v45 - Seamless Fix</title>
+    <title>Legato Trainer v46 - History Visible</title>
     <style>
-        /* --- v45 STYLE --- */
+        /* --- v46 STYLE (History Priority) --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -37,78 +37,71 @@
             -webkit-user-select: none;
         }
 
-        /* HEADER */
+        /* HEADER: Minimal */
         .header {
             padding: calc(5px + env(safe-area-inset-top)) 10px 5px 10px;
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--c-border);
             flex-shrink: 0;
             z-index: 10; background: var(--c-bg);
-            height: 45px;
+            height: 40px;
         }
-        h1 { margin: 0; font-size: 0.75rem; font-weight: 800; letter-spacing: 1px; color: #ccc; }
+        h1 { margin: 0; font-size: 0.7rem; font-weight: 800; letter-spacing: 1px; color: #ccc; }
         .mode-select {
             background: #222; color: #fff; border: 1px solid #444;
             padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; outline: none;
             font-weight: bold;
         }
 
-        /* METRONOME AREA */
+        /* METRONOME: Ultra Compact (Top strip) */
         .metronome-area {
-            flex-grow: 0; flex-shrink: 0;
-            height: 22vh;
-            min-height: 120px; max-height: 180px;
+            flex-shrink: 0;
+            height: 80px; /* Fixed small height */
             background: radial-gradient(circle at center bottom, #1a1a1a, #000);
             border-bottom: 1px solid var(--c-border);
             position: relative;
             overflow: hidden;
         }
         
+        /* Scaled down visuals */
         .metro-arc {
-            position: absolute; bottom: 5px; left: 50%; margin-left: -110px;
-            width: 220px; height: 220px;
+            position: absolute; bottom: -40px; left: 50%; margin-left: -100px;
+            width: 200px; height: 200px;
             border-top: 1px solid #333; border-radius: 50%; opacity: 0.5;
         }
-        .target-line {
-            position: absolute; top: 30px; width: 4px; height: 50px;
-            background: #555; border-radius: 2px; z-index: 4;
-        }
-        .target-l { left: 15%; transform: rotate(15deg); }
-        .target-r { right: 15%; transform: rotate(-15deg); }
-
+        
         .bumper {
-            position: absolute; top: 40px; width: 8px; height: 35px;
-            background: #333; border: 1px solid #555; border-radius: 4px; z-index: 5;
+            position: absolute; top: 20px; width: 6px; height: 25px;
+            background: #333; border: 1px solid #555; border-radius: 2px; z-index: 5;
         }
-        .bumper-l { left: 12%; transform: rotate(15deg); }
-        .bumper-r { right: 12%; transform: rotate(-15deg); }
+        .bumper-l { left: 25%; transform: rotate(15deg); }
+        .bumper-r { right: 25%; transform: rotate(-15deg); }
         
         .bumper-flash {
-            position: absolute; top: 20px; width: 40px; height: 60px;
+            position: absolute; top: 10px; width: 30px; height: 40px;
             background: radial-gradient(circle, #fff 0%, transparent 70%);
             opacity: 0; pointer-events: none; mix-blend-mode: screen; z-index: 20;
         }
-        .flash-l { left: 8%; } .flash-r { right: 8%; }
+        .flash-l { left: 20%; } .flash-r { right: 20%; }
         .hit-impact { animation: flashAnim 0.15s ease-out; }
         @keyframes flashAnim { 0% { opacity: 1; transform: scale(1.5); } 100% { opacity: 0; transform: scale(1); } }
 
         .pendulum-pivot {
-            width: 14px; height: 14px; background: #222; border: 2px solid #444; border-radius: 50%;
-            position: absolute; bottom: -7px; left: 50%; margin-left: -7px; z-index: 10;
+            width: 10px; height: 10px; background: #222; border: 2px solid #444; border-radius: 50%;
+            position: absolute; bottom: -5px; left: 50%; margin-left: -5px; z-index: 10;
         }
         .pendulum-rod {
-            width: 4px; height: 90%;
+            width: 3px; height: 75px;
             background: linear-gradient(90deg, #444, #888, #444);
-            position: absolute; bottom: 0; left: 50%; margin-left: -2px;
-            transform-origin: bottom center; 
-            transform: rotate(40deg);
+            position: absolute; bottom: 0; left: 50%; margin-left: -1.5px;
+            transform-origin: bottom center; transform: rotate(40deg);
             will-change: transform; z-index: 8;
         }
         .pendulum-weight {
-            width: 24px; height: 32px; background: linear-gradient(135deg, #333 0%, #111 100%);
+            width: 18px; height: 24px; background: linear-gradient(135deg, #333 0%, #111 100%);
             border: 2px solid var(--c-accent); border-radius: 4px;
-            position: absolute; top: 10%; left: 50%; margin-left: -12px;
-            box-shadow: 0 0 8px rgba(0, 123, 255, 0.4); z-index: 9;
+            position: absolute; top: 10px; left: 50%; margin-left: -9px;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.4); z-index: 9;
         }
 
         /* STATUS */
@@ -128,44 +121,46 @@
         .blink { animation: pulse 1.5s infinite; color: #00d2ff; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* METRICS */
+        /* METRICS: Slim */
         .metrics-area {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; flex-shrink: 0;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; flex-shrink: 0;
         }
         .card {
             background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             padding: 6px 0; position: relative; transition: background 0.1s;
         }
-        .card-lbl { font-size: 0.55rem; color: var(--c-sub); position: absolute; top: 4px; letter-spacing: 1px; }
-        .card-val { font-size: 1.6rem; font-weight: 800; line-height: 1; margin-top: 4px;}
-        .card-sub { font-size: 0.7rem; font-weight: bold; margin-top: 2px; }
+        .card-lbl { font-size: 0.5rem; color: var(--c-sub); position: absolute; top: 4px; letter-spacing: 1px; }
+        .card-val { font-size: 1.4rem; font-weight: 800; line-height: 1; margin-top: 4px;}
+        .card-sub { font-size: 0.65rem; font-weight: bold; margin-top: 2px; }
 
-        /* WAVE */
-        .wave-area { padding: 0 6px 6px 6px; height: 30px; flex-shrink: 0; position: relative; }
+        /* WAVE: Slim */
+        .wave-area { padding: 0 4px 4px 4px; height: 20px; flex-shrink: 0; position: relative; }
         .canvas-wrapper {
             width: 100%; height: 100%; background: #000; border: 1px solid var(--c-border);
             border-radius: 4px; overflow: hidden; position: relative;
         }
         canvas { display: block; width: 100%; height: 100%; }
         .input-led {
-            position: absolute; top: 3px; right: 8px; width: 8px; height: 8px; border-radius: 50%;
+            position: absolute; top: 2px; right: 6px; width: 6px; height: 6px; border-radius: 50%;
             background: #222; border: 1px solid #444; transition: background 0.05s; z-index: 10;
         }
-        .input-led.on { background: #00d2ff; box-shadow: 0 0 8px #00d2ff; border-color: #fff; }
-        .input-led.noise { background: #ff3b30; box-shadow: 0 0 8px #ff3b30; animation: pulse 0.2s infinite; }
+        .input-led.on { background: #00d2ff; box-shadow: 0 0 6px #00d2ff; border-color: #fff; }
+        .input-led.noise { background: #ff3b30; box-shadow: 0 0 6px #ff3b30; animation: pulse 0.2s infinite; }
 
-        /* HISTORY */
+        /* HISTORY: Main Focus Area */
         .history-area {
-            flex: 1 1 auto; overflow-y: auto; min-height: 0;
+            flex: 1; /* Takes all available space */
+            overflow-y: scroll; 
+            -webkit-overflow-scrolling: touch;
             border-top: 1px solid var(--c-border); background: #050505; position: relative;
         }
         .hist-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
         .hist-table th { 
-            text-align: left; padding: 4px 8px; color: var(--c-sub); font-size: 0.55rem; 
+            text-align: left; padding: 6px 8px; color: var(--c-sub); font-size: 0.6rem; 
             position: sticky; top: 0; background: #111; z-index: 2; border-bottom: 1px solid var(--c-border);
         }
-        .hist-table td { padding: 4px 8px; border-bottom: 1px solid #1a1a1a; }
+        .hist-table td { padding: 6px 8px; border-bottom: 1px solid #1a1a1a; }
         .hist-new { background: rgba(0, 123, 255, 0.15); border-left: 3px solid var(--c-accent); animation: flashRow 0.5s; }
 
         /* SETTINGS */
@@ -209,7 +204,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v45</h1>
+    <h1>LEGATO TRAINER v46</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -220,8 +215,6 @@
 
 <div class="metronome-area">
     <div class="metro-arc"></div>
-    <div class="target-line target-l"></div>
-    <div class="target-line target-r"></div>
     <div class="bumper bumper-l"></div>
     <div class="bumper bumper-r"></div>
     <div id="flashL" class="bumper-flash flash-l"></div>
@@ -309,10 +302,7 @@ const engine = {
     startTime: 0, 
     
     patterns: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
-    currentPattern: 1, 
-    pendingPattern: 1, // FIX: Holds the next pattern until beat finishes
-    pIndex: 0, beatCount: 0,
-    totalNoteCount: 0, 
+    currentPattern: 1, pIndex: 0, beatCount: 0,
     
     targetQueue: [], vol: 0.5, 
     thresh: 0.012, 
@@ -321,7 +311,7 @@ const engine = {
     cycleHits: [], stars: 0,
     totalHits: 0,
     
-    lastVisualNoteId: -1,
+    lastBeatIndex: -1,
     noiseWarningCounter: 0
 };
 
@@ -385,67 +375,40 @@ function scheduleNote(time) {
     osc.start(time); osc.stop(time + 0.04);
 
     engine.targetQueue = engine.targetQueue.filter(t => t.time > engine.ctx.currentTime - 1.0);
-    
-    // Use CURRENT pattern for scheduling (not pending)
     const pattern = engine.patterns[engine.currentPattern];
     const dur = (60 / engine.bpm) * pattern[engine.pIndex];
     
-    const dir = (engine.totalNoteCount % 2 === 0) ? -1 : 1;
-    engine.totalNoteCount++;
-
-    engine.targetQueue.push({ id: Date.now() + Math.random(), time: time, duration: dur, hit: false, swingDir: dir });
+    engine.targetQueue.push({ id: Date.now() + Math.random(), time: time, duration: dur, hit: false });
 }
 
 function advanceNote() {
     const pattern = engine.patterns[engine.currentPattern];
     const secondsPerBeat = 60.0 / engine.bpm;
     engine.nextTime += secondsPerBeat * pattern[engine.pIndex];
-    
     engine.pIndex++;
-    
-    // Check if pattern finished (Beat Boundary)
     if (engine.pIndex >= pattern.length) {
         engine.pIndex = 0;
         engine.beatCount++;
-        
-        // QUANTIZED SWITCH: Apply pending groove here
-        if (engine.currentPattern !== engine.pendingPattern) {
-            engine.currentPattern = engine.pendingPattern;
-            if (engine.gameActive) {
-                ui.msg.innerText = "GROOVE CHANGED!";
-                setTimeout(() => { if(engine.gameActive) ui.msg.innerText = "COLLECT 4 STARS"; }, 1000);
-            }
-        }
-        
         if (engine.gameActive) updateGameProgress();
     }
 }
 
 function updateVisualizer(now) {
-    let activeNote = engine.targetQueue.find(n => now >= n.time && now < n.time + n.duration);
-    if (!activeNote) {
-        activeNote = engine.targetQueue.find(n => n.time > now);
-    }
+    const beatDur = 60.0 / engine.bpm;
+    const timeElapsed = now - engine.startTime;
+    if (timeElapsed < 0) return;
 
-    if (activeNote) {
-        let progress = (now - activeNote.time) / activeNote.duration;
-        if (progress < 0) progress = 0;
-        if (progress > 1) progress = 1;
-
-        const rad = progress * Math.PI;
-        const angle = -40 * activeNote.swingDir * Math.cos(rad);
-        
-        ui.pendulum.style.transform = `rotate(${angle}deg)`;
-        
-        if (activeNote.id !== engine.lastVisualNoteId) {
-            if (engine.lastVisualNoteId !== -1) {
-                if (activeNote.swingDir === -1) triggerImpact('R');
-                else triggerImpact('L');
-            }
-            engine.lastVisualNoteId = activeNote.id;
-        }
-    } else {
-        ui.pendulum.style.transform = `rotate(40deg)`;
+    const rad = (timeElapsed * Math.PI) / beatDur;
+    const angle = Math.cos(rad) * 40; 
+    
+    ui.pendulum.style.transform = `rotate(${angle}deg)`;
+    
+    const currentBeat = Math.floor((timeElapsed + 0.05) / beatDur);
+    
+    if (currentBeat > engine.lastBeatIndex) {
+        engine.lastBeatIndex = currentBeat;
+        if (currentBeat % 2 === 0) triggerImpact('R');
+        else triggerImpact('L');
     }
 }
 
@@ -645,7 +608,6 @@ function resetToReady() {
     engine.gameActive = false; 
     engine.beatCount = 0;
     engine.totalHits = 0;
-    engine.totalNoteCount = 0;
     
     ui.bar.style.width = "0%"; 
     ui.msg.innerText = "LISTEN... PLAY TO START"; 
@@ -687,9 +649,7 @@ ui.start.addEventListener('click', async () => {
     engine.running = true;
     engine.bpm = parseInt(ui.bpm.value);
     engine.currentPattern = parseInt(ui.groove.value);
-    engine.pendingPattern = engine.currentPattern; // Initialize Pending
-    
-    engine.pIndex = 0; engine.beatCount = 0; engine.totalNoteCount = 0;
+    engine.pIndex = 0; engine.beatCount = 0; 
     
     engine.nextTime = engine.ctx.currentTime + 0.1;
     engine.startTime = engine.nextTime;
@@ -700,7 +660,7 @@ ui.start.addEventListener('click', async () => {
     engine.noteOn = false; 
     engine.noteStart = 0; 
     engine.lastHitId = -1; 
-    engine.lastVisualNoteId = -1;
+    engine.lastBeatIndex = -1;
     
     ui.start.style.display = 'none'; ui.stop.classList.add('active');
     scheduler(); detectionLoop();
@@ -714,14 +674,9 @@ ui.stop.addEventListener('click', () => {
 
 ui.restart.addEventListener('click', resetToReady);
 
-// FIX: Event listener ONLY updates pendingPattern
 ui.groove.addEventListener('change', () => {
-    engine.pendingPattern = parseInt(ui.groove.value);
-    if (engine.running) {
-        ui.msg.innerText = "SWITCHING...";
-        ui.msg.style.color = "#ffcc00";
-        ui.msg.classList.add('blink');
-    }
+    engine.currentPattern = parseInt(ui.groove.value);
+    engine.pIndex = 0; 
 });
 
 ui.inVol.addEventListener('input', e => { 
