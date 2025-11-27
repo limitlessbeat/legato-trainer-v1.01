@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v57 - Calibration Precision</title>
+    <title>Legato Trainer v58 - Red Line Fix</title>
     <style>
-        /* --- v57 STYLE --- */
+        /* --- v58 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -204,8 +204,11 @@
         .bpm-box { background: #222; border-radius: 8px; width: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .bpm-input { background: transparent; border: none; color: #fff; width: 100%; text-align: center; font-size: 1.0rem; font-weight: bold; padding: 0; }
         .bpm-lbl { font-size: 0.5rem; color: var(--c-sub); }
+        
+        /* --- FIX: Added outline and box-shadow none --- */
         .btn { 
-            flex: 1; border: none; border-radius: 8px; font-size: 1.0rem; font-weight: bold; 
+            flex: 1; border: none; outline: none; box-shadow: none;
+            border-radius: 8px; font-size: 1.0rem; font-weight: bold; 
             cursor: pointer; padding: 10px; letter-spacing: 1px; 
         }
         .btn-start { background: var(--c-accent); color: white; }
@@ -263,7 +266,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v57</h1>
+    <h1>LEGATO TRAINER v58</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -462,10 +465,9 @@ async function startCalibration() {
 function playTestClick() {
     const osc = engine.ctx.createOscillator();
     const g = engine.ctx.createGain();
-    // Use Square wave for sharper attack
     osc.type = 'square';
     osc.frequency.value = 1000;
-    g.gain.value = 0.5; // Slightly quieter to avoid feedback loop distortion
+    g.gain.value = 0.5; 
     osc.connect(g); g.connect(engine.gain);
     const now = engine.ctx.currentTime;
     osc.start(now); osc.stop(now + 0.05);
@@ -482,7 +484,6 @@ function calibLoop() {
     for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
     const rms = Math.sqrt(sum / data.length);
     
-    // FIX: Use engine.thresh (slider value) for consistent detection
     if (rms > engine.thresh) {
         const now = engine.ctx.currentTime;
         const hit = engine.calibHits[engine.calibHits.length-1];
