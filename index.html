@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v47 - Legato First</title>
+    <title>Legato Trainer v49 - Layout Swapped</title>
     <style>
-        /* --- v47 STYLE (Legato Priority) --- */
+        /* --- v49 STYLE (Left:Timing, Right:Legato) --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -56,7 +56,7 @@
         /* METRONOME AREA */
         .metronome-area {
             flex-shrink: 0;
-            height: 80px;
+            height: 70px;
             background: radial-gradient(circle at center bottom, #1a1a1a, #000);
             border-bottom: 1px solid var(--c-border);
             position: relative;
@@ -90,7 +90,7 @@
             position: absolute; bottom: -5px; left: 50%; margin-left: -5px; z-index: 10;
         }
         .pendulum-rod {
-            width: 3px; height: 75px;
+            width: 3px; height: 65px;
             background: linear-gradient(90deg, #444, #888, #444);
             position: absolute; bottom: 0; left: 50%; margin-left: -1.5px;
             transform-origin: bottom center; transform: rotate(40deg);
@@ -120,9 +120,9 @@
         .blink { animation: pulse 1.5s infinite; color: #00d2ff; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* METRICS: Legato Priority Layout */
+        /* METRICS: Timing (Left) / Legato (Right) */
         .metrics-area {
-            display: grid; grid-template-columns: 1.4fr 1fr; /* Legato Wider */
+            display: grid; grid-template-columns: 1fr 1.3fr; /* Legato (Right) slightly wider */
             gap: 4px; padding: 4px; flex-shrink: 0;
         }
         .card {
@@ -132,13 +132,13 @@
         }
         .card-lbl { font-size: 0.5rem; color: var(--c-sub); position: absolute; top: 4px; letter-spacing: 1px; }
         
-        /* Legato (Main) */
-        #cardLegato .card-val { font-size: 2.2rem; font-weight: 800; line-height: 1; margin-top: 6px; color: #fff; }
-        #cardLegato .card-sub { font-size: 0.8rem; font-weight: bold; margin-top: 2px; }
-        
-        /* Timing (Sub) */
+        /* Timing (Left) */
         #cardTime .card-val { font-size: 1.2rem; font-weight: bold; line-height: 1; margin-top: 8px; color: #ccc; }
         #cardTime .card-sub { font-size: 0.6rem; font-weight: bold; margin-top: 2px; }
+
+        /* Legato (Right) - Main Emphasis */
+        #cardLegato .card-val { font-size: 2.2rem; font-weight: 800; line-height: 1; margin-top: 6px; color: #fff; }
+        #cardLegato .card-sub { font-size: 0.8rem; font-weight: bold; margin-top: 2px; }
 
         /* WAVE */
         .wave-area { padding: 0 4px 4px 4px; height: 20px; flex-shrink: 0; position: relative; }
@@ -154,24 +154,34 @@
         .input-led.on { background: #00d2ff; box-shadow: 0 0 6px #00d2ff; border-color: #fff; }
         .input-led.noise { background: #ff3b30; box-shadow: 0 0 6px #ff3b30; animation: pulse 0.2s infinite; }
 
-        /* HISTORY: Rearranged Columns */
+        /* HISTORY */
         .history-area {
             flex: 1; 
             overflow-y: scroll; 
             -webkit-overflow-scrolling: touch;
             border-top: 1px solid var(--c-border); background: #050505; position: relative;
+            margin: 0;
         }
-        .hist-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+        .hist-table { 
+            width: 100%; border-collapse: collapse; font-size: 0.65rem; 
+            table-layout: fixed;
+        }
         .hist-table th { 
-            text-align: left; padding: 6px 8px; color: var(--c-sub); font-size: 0.55rem; 
+            text-align: left; padding: 4px 6px; color: var(--c-sub); font-size: 0.5rem; 
             position: sticky; top: 0; background: #111; z-index: 2; border-bottom: 1px solid var(--c-border);
         }
-        .hist-table td { padding: 6px 8px; border-bottom: 1px solid #1a1a1a; vertical-align: middle; }
+        .hist-table td { 
+            padding: 4px 6px; border-bottom: 1px solid #1a1a1a; vertical-align: middle;
+            height: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
         .hist-new { background: rgba(0, 123, 255, 0.15); border-left: 3px solid var(--c-accent); animation: flashRow 0.5s; }
         
-        /* Colors for History */
-        .hist-legato { font-weight: 800; font-size: 0.75rem; }
-        .hist-timing { font-size: 0.6rem; color: #888; }
+        /* Column Widths (Left->Right) */
+        .col-idx { width: 25px; color: #555; text-align: center; }
+        .col-tim { width: 25%; text-align: left; color: #888; font-size: 0.6rem; } /* Timing Judge */
+        .col-dif { width: 15%; text-align: right; font-family: monospace; color: #666; } /* Diff */
+        .col-leg { width: 25%; font-weight: 800; font-size: 0.7rem; text-align: right;} /* Legato Judge */
+        .col-scr { width: 15%; font-weight: bold; text-align: right; } /* Legato Score */
 
         /* SETTINGS */
         details { flex-shrink: 0; padding: 2px 10px; background: #080808; border-top: 1px solid #222; }
@@ -214,7 +224,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v47</h1>
+    <h1>LEGATO TRAINER v49</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -246,15 +256,15 @@
 </div>
 
 <div class="metrics-area">
-    <div id="cardLegato" class="card">
-        <span class="card-lbl">LEGATO</span>
-        <div id="valLegato" class="card-val">--</div>
-        <div id="subLegato" class="card-sub">--</div>
-    </div>
     <div id="cardTime" class="card">
         <span class="card-lbl">TIMING</span>
         <div id="valTime" class="card-val">--</div>
         <div id="subTime" class="card-sub">READY</div>
+    </div>
+    <div id="cardLegato" class="card">
+        <span class="card-lbl">LEGATO</span>
+        <div id="valLegato" class="card-val">--</div>
+        <div id="subLegato" class="card-sub">--</div>
     </div>
 </div>
 
@@ -269,9 +279,11 @@
     <table class="hist-table">
         <thead>
             <tr>
-                <th style="width:25px">#</th>
-                <th>LEGATO</th> <th>SCORE</th>
-                <th style="text-align:right">TIMING</th> <th style="text-align:right">DIFF</th>
+                <th class="col-idx">#</th>
+                <th class="col-tim">TIMING</th>
+                <th class="col-dif">DIFF</th>
+                <th class="col-leg">LEGATO</th>
+                <th class="col-scr">SCORE</th>
             </tr>
         </thead>
         <tbody id="histBody"></tbody>
@@ -517,7 +529,6 @@ function processRelease(releaseTime) {
         if(dur < 0.03) return; 
         
         target.processed = true;
-        // Modified to return the judge string
         const judge = renderLegato(pct);
         engine.cycleHits.push({ timing: target.lastDiff, legato: pct });
         addHistory(judge, pct, target.lastJudge, target.lastDiff);
@@ -555,7 +566,7 @@ function renderLegato(pct) {
     ui.cardLeg.className = "card " + cls;
     setTimeout(() => ui.cardLeg.className = "card", 150);
     
-    return judge; // Return for history
+    return judge;
 }
 
 function addHistory(legJudge, legPct, timJudge, diff) {
@@ -563,21 +574,19 @@ function addHistory(legJudge, legPct, timJudge, diff) {
     const row = document.createElement('tr');
     row.className = "hist-new";
     
-    // Colors for Legato (Main)
     let lCol = "c-b";
     if(legJudge==="EXCELLENT") lCol = "c-p"; else if(legJudge==="OK") lCol = "c-g";
     
-    // Simple display for Timing (Sub)
     if(!timJudge) timJudge = "MISS";
-    let tCol = "hist-timing";
-    if(timJudge==="PERFECT") tCol = "c-p";
+    let tCol = "c-poor";
+    if(timJudge==="PERFECT") tCol = "c-p"; else if(timJudge==="GOOD") tCol = "c-g";
     
     row.innerHTML = `
-        <td style="color:#555; font-size:0.6rem">${engine.totalHits}</td>
-        <td class="hist-legato ${lCol}">${legJudge}</td>
-        <td style="font-weight:bold">${legPct}%</td>
-        <td class="${tCol}" style="text-align:right">${timJudge}</td>
-        <td style="text-align:right; font-family:monospace">${diff>0?"+"+diff:diff}</td>
+        <td class="col-idx">${engine.totalHits}</td>
+        <td class="col-tim ${tCol}">${timJudge}</td>
+        <td class="col-dif">${diff>0?"+"+diff:diff}</td>
+        <td class="col-leg ${lCol}">${legJudge}</td>
+        <td class="col-scr">${legPct}%</td>
     `;
     
     if (ui.hist.firstChild) {
@@ -588,7 +597,7 @@ function addHistory(legJudge, legPct, timJudge, diff) {
     
     ui.histArea.scrollTop = 0;
 
-    if (ui.hist.children.length > 30) ui.hist.lastChild.remove();
+    if (ui.hist.children.length > 50) ui.hist.lastChild.remove();
 }
 
 function updateGameProgress() {
