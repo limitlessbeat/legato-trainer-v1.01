@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v52 - Early/Late Detail</title>
+    <title>Legato Trainer v54 - Auto Calib Start</title>
     <style>
-        /* --- v52 STYLE (Detailed Timing) --- */
+        /* --- v54 STYLE (Auto Calib at Start) --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -186,7 +186,7 @@
         .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 4px; }
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
-
+        
         /* CONTROLS */
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
@@ -238,7 +238,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v52</h1>
+    <h1>LEGATO TRAINER v54</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -352,7 +352,12 @@ const engine = {
     totalHits: 0,
     
     lastBeatIndex: -1,
-    noiseWarningCounter: 0
+    noiseWarningCounter: 0,
+    
+    // State: Has user calibrated?
+    hasCalibrated: false,
+    calibActive: false,
+    calibBeats: []
 };
 
 const ui = {
@@ -397,7 +402,9 @@ async function initAudio() {
     return true;
 }
 
+// --- MAIN SCHEDULER ---
 function scheduler() {
+    if(engine.calibActive) return; // Skip if calibrating
     while (engine.nextTime < engine.ctx.currentTime + 0.1) {
         scheduleNote(engine.nextTime);
         advanceNote();
@@ -433,7 +440,10 @@ function advanceNote() {
     }
 }
 
+// --- VISUALS ---
 function updateVisualizer(now) {
+    if(engine.calibActive) return; // Pendulum stops during calib
+
     const beatDur = 60.0 / engine.bpm;
     const timeElapsed = now - engine.startTime;
     if (timeElapsed < 0) return;
@@ -461,8 +471,9 @@ function triggerImpact(side) {
     else ui.flashR.classList.add('hit-impact');
 }
 
+// --- INPUT DETECTION LOOP ---
 function detectionLoop() {
-    if (!engine.running) {
+    if (!engine.running && !engine.calibActive) {
         ui.pendulum.style.transform = `rotate(40deg)`;
         return;
     }
@@ -484,6 +495,18 @@ function detectionLoop() {
         engine.noiseWarningCounter = 0;
     }
 
+    // CALIBRATION MODE: Listen for loud beeps
+    if (engine.calibActive) {
+        if(rms > 0.1 && (now - engine.noteStart > 0.2)) { // High detection thresh
+             engine.noteStart = now;
+             processCalibrationHit(now);
+        }
+        drawScope(rms);
+        requestAnimationFrame(detectionLoop);
+        return;
+    }
+
+    // NORMAL MODE
     if (engine.noiseWarningCounter > 180) { 
         ui.msg.innerText = "NOISE! (RESET SENS)";
         ui.msg.style.color = "#ff3b30";
@@ -496,7 +519,6 @@ function detectionLoop() {
         if (now - engine.noteStart > 0.05) {
             engine.noteOn = true; 
             engine.noteStart = now; 
-            
             if (!engine.gameActive) {
                 engine.gameActive = true;
                 ui.msg.innerText = "COLLECT 4 STARS";
@@ -516,6 +538,101 @@ function detectionLoop() {
     
     drawScope(rms);
     requestAnimationFrame(detectionLoop);
+}
+
+// --- AUTO CALIBRATION FUNCTIONS ---
+async function autoCalibrateAndStart() {
+    // 1. Setup UI
+    engine.calibActive = true;
+    engine.calibBeats = [];
+    ui.msg.innerText = "AUTO CALIBRATING...";
+    ui.msg.style.color = "#00d2ff";
+    ui.msg.classList.add('blink');
+    
+    // 2. Schedule 4 beeps
+    const now = engine.ctx.currentTime;
+    for(let i=0; i<4; i++) {
+        const t = now + 0.5 + (i * 0.5); // 500ms interval
+        const osc = engine.ctx.createOscillator();
+        const g = engine.ctx.createGain();
+        osc.frequency.value = 2000; // High pitch beep
+        g.gain.value = 1.0;
+        osc.connect(g); g.connect(engine.gain);
+        osc.start(t); osc.stop(t + 0.05);
+        engine.calibBeats.push({ scheduled: t, detected: null });
+    }
+    
+    // 3. Start listening
+    detectionLoop();
+    
+    // 4. Finish after 2.5s
+    setTimeout(finishInitialCalibration, 2500);
+}
+
+function processCalibrationHit(detectedTime) {
+    let best = null; let min = Infinity;
+    engine.calibBeats.forEach(b => {
+        const diff = Math.abs(detectedTime - b.scheduled);
+        if(diff < min) { min = diff; best = b; }
+    });
+    if(best && min < 0.3 && best.detected === null) {
+        best.detected = detectedTime;
+    }
+}
+
+function finishInitialCalibration() {
+    engine.calibActive = false;
+    let totalLat = 0; let count = 0;
+    
+    engine.calibBeats.forEach(b => {
+        if(b.detected !== null) {
+            totalLat += (b.detected - b.scheduled);
+            count++;
+        }
+    });
+    
+    if(count > 0) {
+        const avg = totalLat / count;
+        const ms = Math.round(avg * 1000);
+        const safeMs = Math.max(0, Math.min(300, ms));
+        
+        ui.inLat.value = safeMs;
+        engine.latency = safeMs / 1000;
+        ui.msg.innerText = `CALIB OK: ${safeMs}ms`;
+    } else {
+        ui.msg.innerText = "CALIB FAILED (Using Default)";
+    }
+    
+    // Wait 1s then start game
+    setTimeout(startGameLogic, 1000);
+}
+
+// --- GAME LOGIC ---
+function startGameLogic() {
+    engine.running = true;
+    engine.hasCalibrated = true;
+    engine.bpm = parseInt(ui.bpm.value);
+    engine.currentPattern = parseInt(ui.groove.value);
+    engine.pIndex = 0; engine.beatCount = 0; 
+    
+    engine.nextTime = engine.ctx.currentTime + 0.1;
+    engine.startTime = engine.nextTime;
+    
+    engine.cycleHits = []; engine.targetQueue = [];
+    engine.thresh = ui.inSens.value / 500;
+    
+    engine.noteOn = false; 
+    engine.noteStart = 0; 
+    engine.lastHitId = -1; 
+    engine.lastBeatIndex = -1;
+    
+    ui.start.style.display = 'none'; ui.stop.classList.add('active');
+    ui.msg.innerText = "READY";
+    ui.msg.style.color = "#888";
+    ui.msg.classList.remove('blink');
+    
+    scheduler(); 
+    detectionLoop();
 }
 
 function processHit(inputTime) {
@@ -564,11 +681,6 @@ function renderTiming(diff, forceJudge) {
     } else {
         if (abs <= 45) { judge = "PERFECT"; cls = "bg-p"; col = "c-p"; }
         else if (abs <= 100) { judge = "GOOD"; cls = "bg-g"; col = "c-g"; }
-        else { 
-            // v52 UPDATE: Explicit EARLY/LATE for bad hits
-            judge = (diff < 0) ? "EARLY" : "LATE";
-            cls = "bg-b"; col = "c-b";
-        }
     }
     
     ui.valTime.innerText = (diff>0?"+":"") + diff;
@@ -602,12 +714,9 @@ function addHistory(legJudge, legPct, timJudge, diff) {
     if(legJudge==="EXCELLENT") lCol = "c-p"; else if(legJudge==="OK") lCol = "c-g";
     
     if(!timJudge) timJudge = "MISS";
-    let tCol = "c-poor"; // Default poor color
-    
-    // Updated color logic for History
-    if(timJudge==="PERFECT") tCol = "c-p"; 
-    else if(timJudge==="GOOD") tCol = "c-g";
-    else if(timJudge==="EARLY" || timJudge==="LATE") tCol = "c-b"; // RED for Early/Late
+    let tCol = "c-poor";
+    if(timJudge==="PERFECT") tCol = "c-p"; else if(timJudge==="GOOD") tCol = "c-g";
+    else if(timJudge==="EARLY" || timJudge==="LATE") tCol = "c-b";
     
     row.innerHTML = `
         <td class="col-idx">${engine.totalHits}</td>
@@ -706,26 +815,13 @@ ui.start.addEventListener('click', async () => {
     if(engine.running) return;
     const ready = await initAudio();
     if(!ready) return;
-    resetToReady();
     
-    engine.running = true;
-    engine.bpm = parseInt(ui.bpm.value);
-    engine.currentPattern = parseInt(ui.groove.value);
-    engine.pIndex = 0; engine.beatCount = 0; 
-    
-    engine.nextTime = engine.ctx.currentTime + 0.1;
-    engine.startTime = engine.nextTime;
-    
-    engine.cycleHits = []; engine.targetQueue = [];
-    engine.thresh = ui.inSens.value / 500;
-    
-    engine.noteOn = false; 
-    engine.noteStart = 0; 
-    engine.lastHitId = -1; 
-    engine.lastBeatIndex = -1;
-    
-    ui.start.style.display = 'none'; ui.stop.classList.add('active');
-    scheduler(); detectionLoop();
+    // CHECK CALIBRATION
+    if(!engine.hasCalibrated) {
+        await autoCalibrateAndStart();
+    } else {
+        startGameLogic();
+    }
 });
 
 ui.stop.addEventListener('click', () => {
