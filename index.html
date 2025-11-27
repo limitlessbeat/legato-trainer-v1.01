@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v42 - Compact Fit</title>
+    <title>Legato Trainer v43 - Variable Swing</title>
     <style>
-        /* --- v42 STYLE (One-Screen Compact) --- */
+        /* --- v43 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -31,20 +31,20 @@
             padding: 0;
             display: flex;
             flex-direction: column;
-            height: 100dvh; /* Full screen height */
-            overflow: hidden; /* No body scroll */
+            height: 100dvh;
+            overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
         }
 
-        /* HEADER: Compact */
+        /* HEADER */
         .header {
             padding: calc(5px + env(safe-area-inset-top)) 10px 5px 10px;
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--c-border);
             flex-shrink: 0;
             z-index: 10; background: var(--c-bg);
-            height: 45px; /* Fixed height */
+            height: 45px;
         }
         h1 { margin: 0; font-size: 0.75rem; font-weight: 800; letter-spacing: 1px; color: #ccc; }
         .mode-select {
@@ -53,10 +53,10 @@
             font-weight: bold;
         }
 
-        /* METRONOME: Flexible but smaller */
+        /* METRONOME AREA */
         .metronome-area {
             flex-grow: 0; flex-shrink: 0;
-            height: 22vh; /* Percentage of screen height */
+            height: 22vh;
             min-height: 120px; max-height: 180px;
             background: radial-gradient(circle at center bottom, #1a1a1a, #000);
             border-bottom: 1px solid var(--c-border);
@@ -64,7 +64,6 @@
             overflow: hidden;
         }
         
-        /* Scaled down visual elements */
         .metro-arc {
             position: absolute; bottom: 5px; left: 50%; margin-left: -110px;
             width: 220px; height: 220px;
@@ -101,7 +100,8 @@
             width: 4px; height: 90%;
             background: linear-gradient(90deg, #444, #888, #444);
             position: absolute; bottom: 0; left: 50%; margin-left: -2px;
-            transform-origin: bottom center; transform: rotate(40deg);
+            transform-origin: bottom center; 
+            transform: rotate(40deg); /* Init Right */
             will-change: transform; z-index: 8;
         }
         .pendulum-weight {
@@ -111,7 +111,7 @@
             box-shadow: 0 0 8px rgba(0, 123, 255, 0.4); z-index: 9;
         }
 
-        /* STATUS: Very slim */
+        /* STATUS */
         .status-bar {
             padding: 4px; background: #080808;
             display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -128,7 +128,7 @@
         .blink { animation: pulse 1.5s infinite; color: #00d2ff; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* METRICS: Compact Side-by-Side */
+        /* METRICS */
         .metrics-area {
             display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; flex-shrink: 0;
         }
@@ -141,7 +141,7 @@
         .card-val { font-size: 1.6rem; font-weight: 800; line-height: 1; margin-top: 4px;}
         .card-sub { font-size: 0.7rem; font-weight: bold; margin-top: 2px; }
 
-        /* WAVE: Slim */
+        /* WAVE */
         .wave-area { padding: 0 6px 6px 6px; height: 30px; flex-shrink: 0; position: relative; }
         .canvas-wrapper {
             width: 100%; height: 100%; background: #000; border: 1px solid var(--c-border);
@@ -155,11 +155,9 @@
         .input-led.on { background: #00d2ff; box-shadow: 0 0 8px #00d2ff; border-color: #fff; }
         .input-led.noise { background: #ff3b30; box-shadow: 0 0 8px #ff3b30; animation: pulse 0.2s infinite; }
 
-        /* HISTORY: Flexible Height (This absorbs extra space) */
+        /* HISTORY */
         .history-area {
-            flex-grow: 1; /* Grows to fill space */
-            min-height: 0; /* Allows shrinking */
-            overflow-y: auto; 
+            flex: 1 1 auto; overflow-y: auto; min-height: 0;
             border-top: 1px solid var(--c-border); background: #050505; position: relative;
         }
         .hist-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
@@ -177,11 +175,10 @@
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
 
-        /* CONTROLS: Sticks to bottom safely */
+        /* CONTROLS */
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
             display: flex; gap: 8px; 
-            /* Padding logic: Top 8px, Sides 8px, Bottom = 10px + iPhone Home Bar */
             padding: 8px 8px calc(10px + env(safe-area-inset-bottom)) 8px;
             flex-shrink: 0;
         }
@@ -212,7 +209,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v42</h1>
+    <h1>LEGATO TRAINER v43</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -313,6 +310,7 @@ const engine = {
     
     patterns: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
     currentPattern: 1, pIndex: 0, beatCount: 0,
+    totalNoteCount: 0, // For alternating swing direction
     
     targetQueue: [], vol: 0.5, 
     thresh: 0.012, 
@@ -321,7 +319,7 @@ const engine = {
     cycleHits: [], stars: 0,
     totalHits: 0,
     
-    lastBeatIndex: -1,
+    lastVisualNoteId: -1,
     noiseWarningCounter: 0
 };
 
@@ -388,7 +386,12 @@ function scheduleNote(time) {
     const pattern = engine.patterns[engine.currentPattern];
     const dur = (60 / engine.bpm) * pattern[engine.pIndex];
     
-    engine.targetQueue.push({ id: Date.now() + Math.random(), time: time, duration: dur, hit: false });
+    // Determine swing direction: even counts swing R->L (-1), odd L->R (1)
+    // Default start: swing from Right to Left (-1)
+    const dir = (engine.totalNoteCount % 2 === 0) ? -1 : 1;
+    engine.totalNoteCount++;
+
+    engine.targetQueue.push({ id: Date.now() + Math.random(), time: time, duration: dur, hit: false, swingDir: dir });
 }
 
 function advanceNote() {
@@ -404,21 +407,56 @@ function advanceNote() {
 }
 
 function updateVisualizer(now) {
-    const beatDur = 60.0 / engine.bpm;
-    const timeElapsed = now - engine.startTime;
-    if (timeElapsed < 0) return;
+    // Identify the note currently "playing" (or about to play) to sync pendulum speed
+    // Logic: Pendulum position depends on progress through current note duration
+    
+    // Find active note (covering current time) or nearest future note
+    let activeNote = engine.targetQueue.find(n => now >= n.time && now < n.time + n.duration);
+    
+    if (!activeNote) {
+        // Fallback: find very next note
+        activeNote = engine.targetQueue.find(n => n.time > now);
+    }
 
-    const rad = (timeElapsed * Math.PI) / beatDur;
-    const angle = Math.cos(rad) * 40; 
-    
-    ui.pendulum.style.transform = `rotate(${angle}deg)`;
-    
-    const currentBeat = Math.floor((timeElapsed + 0.05) / beatDur);
-    
-    if (currentBeat > engine.lastBeatIndex) {
-        engine.lastBeatIndex = currentBeat;
-        if (currentBeat % 2 === 0) triggerImpact('R');
-        else triggerImpact('L');
+    if (activeNote) {
+        // Progress 0.0 (Start of Note) -> 1.0 (End of Note)
+        let progress = (now - activeNote.time) / activeNote.duration;
+        
+        // Cap progress for visual stability
+        if (progress < 0) progress = 0;
+        if (progress > 1) progress = 1;
+
+        // Calculate Angle
+        // If swingDir is -1 (Right->Left): Start +40, End -40.
+        // Formula: +40 * Cos(progress * PI)
+        //   p=0 -> cos=1 -> +40 (Right)
+        //   p=1 -> cos=-1 -> -40 (Left)
+        
+        // If swingDir is 1 (Left->Right): Start -40, End +40.
+        // Formula: -40 * Cos(progress * PI)
+        
+        // Generalized: -40 * swingDir * Cos(progress * PI)
+        // Wait, if dir=-1, we want +40 start. -40 * -1 = +40. Correct.
+        
+        const rad = progress * Math.PI;
+        const angle = -40 * activeNote.swingDir * Math.cos(rad);
+        
+        ui.pendulum.style.transform = `rotate(${angle}deg)`;
+        
+        // Flash Logic: Trigger when a NEW note starts (id changes)
+        if (activeNote.id !== engine.lastVisualNoteId) {
+            // Only trigger if it's not the initial setup
+            if (engine.lastVisualNoteId !== -1) {
+                // Trigger Flash on the side where the note STARTS
+                // dir -1 (Right->Left) starts at Right.
+                if (activeNote.swingDir === -1) triggerImpact('R');
+                else triggerImpact('L');
+            }
+            engine.lastVisualNoteId = activeNote.id;
+        }
+    } else {
+        // Default idle state
+        ui.pendulum.style.transform = `rotate(40deg)`;
     }
 }
 
@@ -618,6 +656,7 @@ function resetToReady() {
     engine.gameActive = false; 
     engine.beatCount = 0;
     engine.totalHits = 0;
+    engine.totalNoteCount = 0;
     
     ui.bar.style.width = "0%"; 
     ui.msg.innerText = "LISTEN... PLAY TO START"; 
@@ -659,7 +698,7 @@ ui.start.addEventListener('click', async () => {
     engine.running = true;
     engine.bpm = parseInt(ui.bpm.value);
     engine.currentPattern = parseInt(ui.groove.value);
-    engine.pIndex = 0; engine.beatCount = 0; 
+    engine.pIndex = 0; engine.beatCount = 0; engine.totalNoteCount = 0;
     
     engine.nextTime = engine.ctx.currentTime + 0.1;
     engine.startTime = engine.nextTime;
@@ -670,7 +709,7 @@ ui.start.addEventListener('click', async () => {
     engine.noteOn = false; 
     engine.noteStart = 0; 
     engine.lastHitId = -1; 
-    engine.lastBeatIndex = -1;
+    engine.lastVisualNoteId = -1;
     
     ui.start.style.display = 'none'; ui.stop.classList.add('active');
     scheduler(); detectionLoop();
