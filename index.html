@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v56 - Re-Calibration</title>
+    <title>Legato Trainer v57 - Calibration Precision</title>
     <style>
-        /* --- v56 STYLE --- */
+        /* --- v57 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -187,7 +187,6 @@
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
         
-        /* New Mini Button for Settings */
         .btn-mini {
             padding: 4px 10px; border-radius: 15px; border: 1px solid #555;
             background: #333; color: #fff; font-size: 0.6rem; font-weight: bold;
@@ -213,7 +212,6 @@
         .btn-stop { background: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; }
         .btn-stop.active { opacity: 1; pointer-events: auto; }
 
-        /* CREDIT */
         .credit {
             position: absolute;
             bottom: calc(4px + env(safe-area-inset-bottom));
@@ -265,7 +263,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v56</h1>
+    <h1>LEGATO TRAINER v57</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -464,8 +462,10 @@ async function startCalibration() {
 function playTestClick() {
     const osc = engine.ctx.createOscillator();
     const g = engine.ctx.createGain();
-    osc.frequency.value = 1500;
-    g.gain.value = 1.0;
+    // Use Square wave for sharper attack
+    osc.type = 'square';
+    osc.frequency.value = 1000;
+    g.gain.value = 0.5; // Slightly quieter to avoid feedback loop distortion
     osc.connect(g); g.connect(engine.gain);
     const now = engine.ctx.currentTime;
     osc.start(now); osc.stop(now + 0.05);
@@ -482,7 +482,8 @@ function calibLoop() {
     for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
     const rms = Math.sqrt(sum / data.length);
     
-    if (rms > 0.1) {
+    // FIX: Use engine.thresh (slider value) for consistent detection
+    if (rms > engine.thresh) {
         const now = engine.ctx.currentTime;
         const hit = engine.calibHits[engine.calibHits.length-1];
         if(hit && !hit.recv && (now - hit.send < 0.5)) {
