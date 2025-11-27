@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v58 - Red Line Fix</title>
+    <title>Legato Trainer v59 - Auto Sensitivity</title>
     <style>
-        /* --- v58 STYLE --- */
+        /* --- v59 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -204,8 +204,6 @@
         .bpm-box { background: #222; border-radius: 8px; width: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .bpm-input { background: transparent; border: none; color: #fff; width: 100%; text-align: center; font-size: 1.0rem; font-weight: bold; padding: 0; }
         .bpm-lbl { font-size: 0.5rem; color: var(--c-sub); }
-        
-        /* --- FIX: Added outline and box-shadow none --- */
         .btn { 
             flex: 1; border: none; outline: none; box-shadow: none;
             border-radius: 8px; font-size: 1.0rem; font-weight: bold; 
@@ -233,7 +231,7 @@
         /* OVERLAY */
         .overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.98); z-index: 9999; 
+            background: rgba(0,0,0,0.95); z-index: 9999; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             animation: fadeIn 0.3s;
             cursor: pointer;
@@ -266,7 +264,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v58</h1>
+    <h1>LEGATO TRAINER v59</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -356,7 +354,7 @@
     </div>
 </div>
 
-<div id="overlay" class="overlay" style="display:flex">
+<div id="overlay" class="overlay" style="display:none">
     <h2 id="ovTitle">SETUP</h2>
     <p id="ovDesc">Set volume MAX & unmute.<br>We will check latency.</p>
     <button id="btnCalib" class="btn-calib">START CALIBRATION</button>
@@ -386,7 +384,8 @@ const engine = {
     noiseWarningCounter: 0,
     
     isCalibrating: false,
-    calibHits: []
+    calibHits: [],
+    calibNoisePeak: 0
 };
 
 const ui = {
@@ -436,28 +435,28 @@ async function initAudio() {
     return true;
 }
 
-// --- CALIBRATION LOGIC ---
+// --- AUTO SENSITIVITY CALIBRATION LOGIC ---
 async function startCalibration() {
     const ready = await initAudio();
     if(!ready) return;
     
     engine.isCalibrating = true;
+    engine.calibNoisePeak = 0; // Reset peak
     ui.calibBtn.style.display = 'none';
     ui.ovTitle.innerText = "CALIBRATING...";
-    ui.ovDesc.innerText = "Quiet please...";
-    engine.calibHits = [];
+    ui.ovDesc.innerText = "Quiet please... Measuring metronome volume";
     
     let count = 0;
     const interval = setInterval(() => {
         count++;
-        ui.calibCount.innerText = count + "/3";
+        ui.calibCount.innerText = count + "/4";
         playTestClick();
         
-        if (count >= 3) {
+        if (count >= 4) {
             clearInterval(interval);
             setTimeout(finishCalibration, 1000);
         }
-    }, 1000);
+    }, 800);
     
     calibLoop();
 }
@@ -465,14 +464,12 @@ async function startCalibration() {
 function playTestClick() {
     const osc = engine.ctx.createOscillator();
     const g = engine.ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = 1000;
-    g.gain.value = 0.5; 
+    // Loud, sharp click
+    osc.frequency.value = 1500;
+    g.gain.value = 1.0; 
     osc.connect(g); g.connect(engine.gain);
     const now = engine.ctx.currentTime;
     osc.start(now); osc.stop(now + 0.05);
-    
-    engine.calibHits.push({ send: now, recv: null });
 }
 
 function calibLoop() {
@@ -484,39 +481,35 @@ function calibLoop() {
     for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
     const rms = Math.sqrt(sum / data.length);
     
-    if (rms > engine.thresh) {
-        const now = engine.ctx.currentTime;
-        const hit = engine.calibHits[engine.calibHits.length-1];
-        if(hit && !hit.recv && (now - hit.send < 0.5)) {
-            hit.recv = now;
-        }
+    // Record maximum RMS encountered during clicks
+    if (rms > engine.calibNoisePeak) {
+        engine.calibNoisePeak = rms;
     }
+    
     requestAnimationFrame(calibLoop);
 }
 
 function finishCalibration() {
     engine.isCalibrating = false;
     
-    let totalLat = 0;
-    let validCount = 0;
-    engine.calibHits.forEach(h => {
-        if(h.recv) {
-            totalLat += (h.recv - h.send);
-            validCount++;
-        }
-    });
+    // Logic: The peak noise we heard IS the metronome.
+    // We need to set threshold HIGHER than that.
+    // Let's add a safety margin (e.g. +20%)
+    let newThresh = engine.calibNoisePeak * 1.2;
     
-    let resultLat = 0.240; 
-    if (validCount > 0) {
-        resultLat = totalLat / validCount;
-        if(resultLat < 0.01) resultLat = 0.05;
-        if(resultLat > 0.5) resultLat = 0.5;
-    }
+    // Clamp values to reasonable bounds
+    if (newThresh < 0.01) newThresh = 0.01; // Minimum floor
+    if (newThresh > 0.5) newThresh = 0.5; // Max ceiling
     
-    engine.latency = resultLat;
-    ui.inLat.value = Math.round(resultLat * 1000);
+    // Apply
+    engine.thresh = newThresh;
+    // Update UI Slider (approximate)
+    let sliderVal = Math.round(newThresh * 500);
+    if(sliderVal < 1) sliderVal = 1;
+    if(sliderVal > 50) sliderVal = 50;
+    ui.inSens.value = sliderVal;
     
-    // RESET OVERLAY TO CLEAR/RESTART MODE
+    // Close Overlay
     ui.overlay.style.display = 'none';
     ui.ovTitle.innerText = "CLEAR!";
     ui.ovDesc.innerText = "Excellent Rhythm & Control";
@@ -524,7 +517,9 @@ function finishCalibration() {
     ui.calibBtn.style.display = 'none'; 
     ui.restart.style.display = 'block'; 
     
+    // Start Game Immediately
     resetToReady();
+    ui.start.click(); 
 }
 
 // --- RE-CALIB BTN ---
@@ -535,7 +530,7 @@ ui.btnReCalib.addEventListener('click', () => {
     // Setup Overlay for Calibration
     ui.overlay.style.display = 'flex';
     ui.ovTitle.innerText = "SETUP";
-    ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>We will check latency.";
+    ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>Check sensitivity.";
     ui.calibBtn.style.display = 'block';
     ui.restart.style.display = 'none';
     ui.calibCount.innerText = "";
@@ -632,6 +627,7 @@ function detectionLoop() {
         engine.noiseWarningCounter = 0;
     }
 
+    // Only warn noise if it sustains too long
     if (engine.noiseWarningCounter > 180) { 
         ui.msg.innerText = "NOISE! (RESET SENS)";
         ui.msg.style.color = "#ff3b30";
@@ -846,13 +842,20 @@ function drawScope(rms) {
     ctxScope.fillRect(w/2 - 20, h - barH, 40, barH);
 }
 
-ui.calibBtn.addEventListener('click', startCalibration);
+// AUTO START CALIB ONLY ON FIRST CLICK
 ui.start.addEventListener('click', async () => {
     if(engine.running) return;
-    const ready = await initAudio();
-    if(!ready) return;
-    resetToReady();
     
+    // First time init, show calib
+    if(!engine.ctx) {
+        ui.overlay.style.display = 'flex';
+        ui.ovTitle.innerText = "SETUP";
+        ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>Calibrating sensitivity...";
+        ui.calibBtn.style.display = 'block';
+        ui.restart.style.display = 'none';
+        return;
+    }
+
     engine.running = true;
     engine.bpm = parseInt(ui.bpm.value);
     engine.currentPattern = parseInt(ui.groove.value);
@@ -862,7 +865,7 @@ ui.start.addEventListener('click', async () => {
     engine.startTime = engine.nextTime;
     
     engine.cycleHits = []; engine.targetQueue = [];
-    engine.thresh = ui.inSens.value / 500;
+    // Thresh is updated via slider/calib
     
     engine.noteOn = false; 
     engine.noteStart = 0; 
