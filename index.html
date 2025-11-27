@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v42 - Groove Sync Fix</title>
+    <title>Legato Trainer v42 - Compact Fit</title>
     <style>
-        /* --- v42 STYLE --- */
+        /* --- v42 STYLE (One-Screen Compact) --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -31,60 +31,61 @@
             padding: 0;
             display: flex;
             flex-direction: column;
-            height: 100dvh;
-            overflow: hidden;
+            height: 100dvh; /* Full screen height */
+            overflow: hidden; /* No body scroll */
             user-select: none;
             -webkit-user-select: none;
         }
 
-        /* HEADER */
+        /* HEADER: Compact */
         .header {
-            padding: calc(10px + env(safe-area-inset-top)) 15px 10px 15px;
+            padding: calc(5px + env(safe-area-inset-top)) 10px 5px 10px;
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--c-border);
             flex-shrink: 0;
             z-index: 10; background: var(--c-bg);
+            height: 45px; /* Fixed height */
         }
-        h1 { margin: 0; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; color: #ccc; }
+        h1 { margin: 0; font-size: 0.75rem; font-weight: 800; letter-spacing: 1px; color: #ccc; }
         .mode-select {
             background: #222; color: #fff; border: 1px solid #444;
-            padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; outline: none;
+            padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; outline: none;
             font-weight: bold;
         }
 
-        /* METRONOME AREA */
+        /* METRONOME: Flexible but smaller */
         .metronome-area {
-            height: 25vh; 
-            min-height: 160px; max-height: 220px;
+            flex-grow: 0; flex-shrink: 0;
+            height: 22vh; /* Percentage of screen height */
+            min-height: 120px; max-height: 180px;
             background: radial-gradient(circle at center bottom, #1a1a1a, #000);
             border-bottom: 1px solid var(--c-border);
             position: relative;
             overflow: hidden;
-            flex-shrink: 0;
         }
         
+        /* Scaled down visual elements */
         .metro-arc {
-            position: absolute; bottom: 10px; left: 50%; margin-left: -130px;
-            width: 260px; height: 260px;
+            position: absolute; bottom: 5px; left: 50%; margin-left: -110px;
+            width: 220px; height: 220px;
             border-top: 1px solid #333; border-radius: 50%; opacity: 0.5;
         }
-        
         .target-line {
-            position: absolute; top: 40px; width: 4px; height: 60px;
+            position: absolute; top: 30px; width: 4px; height: 50px;
             background: #555; border-radius: 2px; z-index: 4;
         }
         .target-l { left: 15%; transform: rotate(15deg); }
         .target-r { right: 15%; transform: rotate(-15deg); }
 
         .bumper {
-            position: absolute; top: 50px; width: 8px; height: 40px;
+            position: absolute; top: 40px; width: 8px; height: 35px;
             background: #333; border: 1px solid #555; border-radius: 4px; z-index: 5;
         }
         .bumper-l { left: 12%; transform: rotate(15deg); }
         .bumper-r { right: 12%; transform: rotate(-15deg); }
         
         .bumper-flash {
-            position: absolute; top: 30px; width: 50px; height: 70px;
+            position: absolute; top: 20px; width: 40px; height: 60px;
             background: radial-gradient(circle, #fff 0%, transparent 70%);
             opacity: 0; pointer-events: none; mix-blend-mode: screen; z-index: 20;
         }
@@ -93,103 +94,103 @@
         @keyframes flashAnim { 0% { opacity: 1; transform: scale(1.5); } 100% { opacity: 0; transform: scale(1); } }
 
         .pendulum-pivot {
-            width: 16px; height: 16px; background: #222; border: 2px solid #444; border-radius: 50%;
-            position: absolute; bottom: -8px; left: 50%; margin-left: -8px; z-index: 10;
+            width: 14px; height: 14px; background: #222; border: 2px solid #444; border-radius: 50%;
+            position: absolute; bottom: -7px; left: 50%; margin-left: -7px; z-index: 10;
         }
         .pendulum-rod {
-            width: 4px; 
-            height: 88%;
+            width: 4px; height: 90%;
             background: linear-gradient(90deg, #444, #888, #444);
             position: absolute; bottom: 0; left: 50%; margin-left: -2px;
-            transform-origin: bottom center; 
-            transform: rotate(40deg); /* Start Right */
+            transform-origin: bottom center; transform: rotate(40deg);
             will-change: transform; z-index: 8;
         }
         .pendulum-weight {
-            width: 28px; height: 36px; background: linear-gradient(135deg, #333 0%, #111 100%);
+            width: 24px; height: 32px; background: linear-gradient(135deg, #333 0%, #111 100%);
             border: 2px solid var(--c-accent); border-radius: 4px;
-            position: absolute; top: 10%; left: 50%; margin-left: -14px;
-            box-shadow: 0 0 10px rgba(0, 123, 255, 0.4); z-index: 9;
+            position: absolute; top: 10%; left: 50%; margin-left: -12px;
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.4); z-index: 9;
         }
 
-        /* STATUS */
+        /* STATUS: Very slim */
         .status-bar {
-            padding: 8px; background: #080808;
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            padding: 4px; background: #080808;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
             border-bottom: 1px solid var(--c-border); flex-shrink: 0;
         }
-        .star-row { display: flex; gap: 10px; font-size: 1.2rem; color: #333; }
-        .star.active { color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.8); transform: scale(1.2); transition: transform 0.2s; }
-        .progress-track { width: 100%; height: 4px; background: #222; border-radius: 2px; overflow: hidden; margin-top: 2px;}
+        .star-row { display: flex; gap: 8px; font-size: 1.0rem; color: #333; }
+        .star.active { color: #ffd700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.8); transform: scale(1.1); transition: transform 0.2s; }
+        .progress-track { width: 100%; height: 3px; background: #222; border-radius: 2px; overflow: hidden; margin-top: 2px;}
         .progress-fill { width: 0%; height: 100%; background: var(--c-accent); transition: width 0.1s linear; }
         .status-msg { 
-            font-size: 0.7rem; color: var(--c-sub); height: 1.1em; margin-top: 2px; font-weight: bold; letter-spacing: 1px;
+            font-size: 0.65rem; color: var(--c-sub); height: 1.1em; margin-top: 1px; font-weight: bold; letter-spacing: 1px;
             animation: fadeIn 0.5s;
         }
         .blink { animation: pulse 1.5s infinite; color: #00d2ff; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* METRICS */
+        /* METRICS: Compact Side-by-Side */
         .metrics-area {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; flex-shrink: 0;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; flex-shrink: 0;
         }
         .card {
-            background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 8px;
+            background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 6px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            padding: 10px 0; position: relative; transition: background 0.1s;
+            padding: 6px 0; position: relative; transition: background 0.1s;
         }
-        .card-lbl { font-size: 0.6rem; color: var(--c-sub); position: absolute; top: 6px; letter-spacing: 1px; }
-        .card-val { font-size: 2.0rem; font-weight: 800; line-height: 1; margin-top: 4px;}
-        .card-sub { font-size: 0.8rem; font-weight: bold; margin-top: 4px; }
+        .card-lbl { font-size: 0.55rem; color: var(--c-sub); position: absolute; top: 4px; letter-spacing: 1px; }
+        .card-val { font-size: 1.6rem; font-weight: 800; line-height: 1; margin-top: 4px;}
+        .card-sub { font-size: 0.7rem; font-weight: bold; margin-top: 2px; }
 
-        /* WAVE */
-        .wave-area { padding: 0 8px 8px 8px; height: 50px; flex-shrink: 0; position: relative; }
+        /* WAVE: Slim */
+        .wave-area { padding: 0 6px 6px 6px; height: 30px; flex-shrink: 0; position: relative; }
         .canvas-wrapper {
             width: 100%; height: 100%; background: #000; border: 1px solid var(--c-border);
-            border-radius: 6px; overflow: hidden; position: relative;
+            border-radius: 4px; overflow: hidden; position: relative;
         }
         canvas { display: block; width: 100%; height: 100%; }
         .input-led {
-            position: absolute; top: 5px; right: 10px; width: 10px; height: 10px; border-radius: 50%;
+            position: absolute; top: 3px; right: 8px; width: 8px; height: 8px; border-radius: 50%;
             background: #222; border: 1px solid #444; transition: background 0.05s; z-index: 10;
         }
-        .input-led.on { background: #00d2ff; box-shadow: 0 0 10px #00d2ff; border-color: #fff; }
-        .input-led.noise { background: #ff3b30; box-shadow: 0 0 10px #ff3b30; animation: pulse 0.2s infinite; }
+        .input-led.on { background: #00d2ff; box-shadow: 0 0 8px #00d2ff; border-color: #fff; }
+        .input-led.noise { background: #ff3b30; box-shadow: 0 0 8px #ff3b30; animation: pulse 0.2s infinite; }
 
-        /* HISTORY */
+        /* HISTORY: Flexible Height (This absorbs extra space) */
         .history-area {
-            flex: 1 1 auto;
-            overflow-y: auto; min-height: 0;
+            flex-grow: 1; /* Grows to fill space */
+            min-height: 0; /* Allows shrinking */
+            overflow-y: auto; 
             border-top: 1px solid var(--c-border); background: #050505; position: relative;
         }
-        .hist-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .hist-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
         .hist-table th { 
-            text-align: left; padding: 6px 8px; color: var(--c-sub); font-size: 0.6rem; 
+            text-align: left; padding: 4px 8px; color: var(--c-sub); font-size: 0.55rem; 
             position: sticky; top: 0; background: #111; z-index: 2; border-bottom: 1px solid var(--c-border);
         }
-        .hist-table td { padding: 6px 8px; border-bottom: 1px solid #1a1a1a; }
+        .hist-table td { padding: 4px 8px; border-bottom: 1px solid #1a1a1a; }
         .hist-new { background: rgba(0, 123, 255, 0.15); border-left: 3px solid var(--c-accent); animation: flashRow 0.5s; }
 
         /* SETTINGS */
-        details { flex-shrink: 0; padding: 5px 10px; background: #080808; border-top: 1px solid #222; }
-        summary { color: #555; font-size: 0.65rem; text-align: center; padding: 5px; cursor: pointer; list-style: none; }
-        .settings-wrap { padding-bottom: 5px; display: flex; flex-direction: column; gap: 8px; }
-        .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #ccc; }
+        details { flex-shrink: 0; padding: 2px 10px; background: #080808; border-top: 1px solid #222; }
+        summary { color: #555; font-size: 0.6rem; text-align: center; padding: 4px; cursor: pointer; list-style: none; }
+        .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 4px; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
 
-        /* CONTROLS */
+        /* CONTROLS: Sticks to bottom safely */
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
-            display: flex; gap: 10px; 
-            padding: 12px 12px calc(20px + env(safe-area-inset-bottom)) 12px;
+            display: flex; gap: 8px; 
+            /* Padding logic: Top 8px, Sides 8px, Bottom = 10px + iPhone Home Bar */
+            padding: 8px 8px calc(10px + env(safe-area-inset-bottom)) 8px;
             flex-shrink: 0;
         }
-        .bpm-box { background: #222; border-radius: 10px; width: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .bpm-input { background: transparent; border: none; color: #fff; width: 100%; text-align: center; font-size: 1.1rem; font-weight: bold; padding: 0; }
-        .bpm-lbl { font-size: 0.55rem; color: var(--c-sub); }
+        .bpm-box { background: #222; border-radius: 8px; width: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .bpm-input { background: transparent; border: none; color: #fff; width: 100%; text-align: center; font-size: 1.0rem; font-weight: bold; padding: 0; }
+        .bpm-lbl { font-size: 0.5rem; color: var(--c-sub); }
         .btn { 
-            flex: 1; border: none; border-radius: 10px; font-size: 1.0rem; font-weight: bold; 
-            cursor: pointer; padding: 12px; letter-spacing: 1px; 
+            flex: 1; border: none; border-radius: 8px; font-size: 1.0rem; font-weight: bold; 
+            cursor: pointer; padding: 10px; letter-spacing: 1px; 
         }
         .btn-start { background: var(--c-accent); color: white; }
         .btn-stop { background: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; }
@@ -314,14 +315,13 @@ const engine = {
     currentPattern: 1, pIndex: 0, beatCount: 0,
     
     targetQueue: [], vol: 0.5, 
-    thresh: 0.012, // Matches Sens 6
+    thresh: 0.012, 
     latency: 0.100,
     noteOn: false, noteStart: 0, lastHitId: -1,
     cycleHits: [], stars: 0,
     totalHits: 0,
-    totalNoteCount: 0,
     
-    lastVisualNoteId: -1,
+    lastBeatIndex: -1,
     noiseWarningCounter: 0
 };
 
@@ -388,14 +388,7 @@ function scheduleNote(time) {
     const pattern = engine.patterns[engine.currentPattern];
     const dur = (60 / engine.bpm) * pattern[engine.pIndex];
     
-    const noteIdx = engine.totalNoteCount++;
-    engine.targetQueue.push({ 
-        id: Date.now() + Math.random(), 
-        time: time, 
-        duration: dur, 
-        hit: false,
-        noteIndex: noteIdx 
-    });
+    engine.targetQueue.push({ id: Date.now() + Math.random(), time: time, duration: dur, hit: false });
 }
 
 function advanceNote() {
@@ -411,43 +404,21 @@ function advanceNote() {
 }
 
 function updateVisualizer(now) {
-    // Find ACTIVE note to sync pendulum speed
-    // We search for the note that covers 'now'
-    const activeNote = engine.targetQueue.find(n => now >= n.time && now < (n.time + n.duration));
+    const beatDur = 60.0 / engine.bpm;
+    const timeElapsed = now - engine.startTime;
+    if (timeElapsed < 0) return;
+
+    const rad = (timeElapsed * Math.PI) / beatDur;
+    const angle = Math.cos(rad) * 40; 
     
-    if (activeNote) {
-        // Calculate progress within this specific note duration (0.0 to 1.0)
-        const pct = (now - activeNote.time) / activeNote.duration;
-        
-        // Determine Swing Direction based on note index
-        // Even Notes (0, 2...): Swing Right -> Left. (Angle 40 -> -40)
-        // Odd Notes (1, 3...): Swing Left -> Right. (Angle -40 -> 40)
-        
-        // Map pct (0->1) to Cosine (1 -> -1)
-        // Math.cos(0) = 1, Math.cos(PI) = -1
-        let rad = pct * Math.PI;
-        
-        // If Odd note, we want -1 -> 1. 
-        // Math.cos(PI + rad) => cos(PI)=-1, cos(2PI)=1.
-        if (activeNote.noteIndex % 2 !== 0) {
-            rad += Math.PI; 
-        }
-        
-        const angle = 40 * Math.cos(rad);
-        ui.pendulum.style.transform = `rotate(${angle}deg)`;
-        
-        // Trigger Flash at start of new note
-        if (activeNote.id !== engine.lastVisualNoteId) {
-            engine.lastVisualNoteId = activeNote.id;
-            // Note: activeNote.noteIndex is the index of the note starting NOW.
-            // Even index = Starts at Right. Flash Right.
-            // Odd index = Starts at Left. Flash Left.
-            if (activeNote.noteIndex % 2 === 0) triggerImpact('R');
-            else triggerImpact('L');
-        }
-    } else {
-        // Fallback if waiting (stopped or gap)
-        if(!engine.running) ui.pendulum.style.transform = `rotate(40deg)`;
+    ui.pendulum.style.transform = `rotate(${angle}deg)`;
+    
+    const currentBeat = Math.floor((timeElapsed + 0.05) / beatDur);
+    
+    if (currentBeat > engine.lastBeatIndex) {
+        engine.lastBeatIndex = currentBeat;
+        if (currentBeat % 2 === 0) triggerImpact('R');
+        else triggerImpact('L');
     }
 }
 
@@ -647,7 +618,6 @@ function resetToReady() {
     engine.gameActive = false; 
     engine.beatCount = 0;
     engine.totalHits = 0;
-    engine.totalNoteCount = 0;
     
     ui.bar.style.width = "0%"; 
     ui.msg.innerText = "LISTEN... PLAY TO START"; 
@@ -690,7 +660,6 @@ ui.start.addEventListener('click', async () => {
     engine.bpm = parseInt(ui.bpm.value);
     engine.currentPattern = parseInt(ui.groove.value);
     engine.pIndex = 0; engine.beatCount = 0; 
-    engine.totalNoteCount = 0;
     
     engine.nextTime = engine.ctx.currentTime + 0.1;
     engine.startTime = engine.nextTime;
@@ -701,7 +670,7 @@ ui.start.addEventListener('click', async () => {
     engine.noteOn = false; 
     engine.noteStart = 0; 
     engine.lastHitId = -1; 
-    engine.lastVisualNoteId = -1;
+    engine.lastBeatIndex = -1;
     
     ui.start.style.display = 'none'; ui.stop.classList.add('active');
     scheduler(); detectionLoop();
