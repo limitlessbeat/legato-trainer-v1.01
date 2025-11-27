@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v59 - Auto Sensitivity</title>
+    <title>Legato Trainer v60 - Auto Calibration Fix</title>
     <style>
-        /* --- v59 STYLE --- */
+        /* --- v60 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -234,37 +234,32 @@
             background: rgba(0,0,0,0.95); z-index: 9999; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             animation: fadeIn 0.3s;
-            cursor: pointer;
         }
         .overlay h2 { font-size: 2.0rem; color: var(--c-warn); margin-bottom: 15px; text-align: center; }
         .overlay p { color: #ccc; margin-bottom: 30px; font-size: 0.8rem; text-align: center; line-height: 1.5; max-width: 80%; }
         
+        .btn-calib-start {
+            padding: 20px 40px; border-radius: 40px; border: none;
+            font-size: 1.2rem; font-weight: 800; cursor: pointer;
+            background: var(--c-good); color: #000;
+            box-shadow: 0 0 25px rgba(76, 217, 100, 0.6);
+            margin-bottom: 20px;
+        }
+
         .btn-restart { 
             padding: 15px 40px; border-radius: 30px; border: none; 
             font-size: 1.2rem; font-weight: bold; cursor: pointer; 
             background: var(--c-accent); color: #fff; 
             box-shadow: 0 0 20px rgba(0, 123, 255, 0.5);
         }
-        .btn-calib {
-            background: var(--c-good); color: #000;
-            padding: 15px 30px; border-radius: 30px; border: none;
-            font-size: 1.1rem; font-weight: bold; cursor: pointer;
-            margin-bottom: 20px;
-        }
         
-        .calib-progress { font-size: 3rem; font-weight: 800; color: #fff; margin-top: 20px; }
-       
-        .c-p { color: var(--c-good); } .c-g { color: var(--c-warn); } .c-b { color: var(--c-bad); } .c-poor { color: var(--c-poor); }
-        .bg-p { background: rgba(76, 217, 100, 0.2); border-color: var(--c-good); }
-        .bg-g { background: rgba(255, 204, 0, 0.2); border-color: var(--c-warn); }
-        .bg-b { background: rgba(255, 59, 48, 0.2); border-color: var(--c-bad); }
-        .bg-poor { background: rgba(153, 153, 153, 0.2); border-color: var(--c-poor); }
+        .calib-progress { font-size: 2rem; font-weight: 800; color: #fff; margin-top: 20px; min-height: 40px; }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v59</h1>
+    <h1>LEGATO TRAINER v60</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -354,11 +349,13 @@
     </div>
 </div>
 
-<div id="overlay" class="overlay" style="display:none">
+<div id="overlay" class="overlay" style="display:flex">
     <h2 id="ovTitle">SETUP</h2>
-    <p id="ovDesc">Set volume MAX & unmute.<br>We will check latency.</p>
-    <button id="btnCalib" class="btn-calib">START CALIBRATION</button>
-    <button id="btnRestart" class="btn-restart" style="display:none">TAP TO CONTINUE</button>
+    <p id="ovDesc">Set volume MAX & unmute.<br>Tap to calibrate & start.</p>
+    
+    <button id="btnCalibStart" class="btn-calib-start">TAP TO START</button>
+    <button id="btnRestart" class="btn-restart" style="display:none">CONTINUE</button>
+    
     <div id="calibCount" class="calib-progress"></div>
 </div>
 
@@ -383,6 +380,7 @@ const engine = {
     lastBeatIndex: -1,
     noiseWarningCounter: 0,
     
+    // Calibration Vars
     isCalibrating: false,
     calibHits: [],
     calibNoisePeak: 0
@@ -392,8 +390,10 @@ const ui = {
     start: document.getElementById('btnStart'),
     stop: document.getElementById('btnStop'),
     restart: document.getElementById('btnRestart'),
-    calibBtn: document.getElementById('btnCalib'),
+    
+    btnCalibStart: document.getElementById('btnCalibStart'),
     btnReCalib: document.getElementById('btnReCalib'),
+    
     bpm: document.getElementById('inBpm'),
     groove: document.getElementById('grooveSelect'),
     canvas: document.getElementById('scope'),
@@ -410,134 +410,264 @@ const ui = {
     stars: [document.getElementById('s1'), document.getElementById('s2'), document.getElementById('s3'), document.getElementById('s4')],
     inputLed: document.getElementById('inputLed'),
     inVol: document.getElementById('inVol'), inSens: document.getElementById('inSens'), inLat: document.getElementById('inLat'),
+    
     overlay: document.getElementById('overlay'),
     ovTitle: document.getElementById('ovTitle'),
     ovDesc: document.getElementById('ovDesc'),
     calibCount: document.getElementById('calibCount')
 };
 
+// --- 1. SYSTEM INIT (Context Resume) ---
 async function initAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
-    engine.ctx = new AC();
+    if (!engine.ctx) engine.ctx = new AC();
+    
     engine.gain = engine.ctx.createGain();
     engine.gain.connect(engine.ctx.destination);
-    if (engine.ctx.state === 'suspended') await engine.ctx.resume();
     
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false, latency: 0 }
-        });
-        engine.mic = engine.ctx.createMediaStreamSource(stream);
-        engine.analyser = engine.ctx.createAnalyser();
-        engine.analyser.fftSize = 1024;
-        engine.mic.connect(engine.analyser);
-    } catch(e) { alert("Microphone Access Denied"); return false; }
+    if (engine.ctx.state === 'suspended') await engine.ctx.resume();
+
+    if (!engine.mic) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false, latency: 0 }
+            });
+            engine.mic = engine.ctx.createMediaStreamSource(stream);
+            engine.analyser = engine.ctx.createAnalyser();
+            engine.analyser.fftSize = 1024;
+            engine.mic.connect(engine.analyser);
+        } catch(e) { 
+            alert("Microphone Access Denied. Please allow mic access."); 
+            return false; 
+        }
+    }
     return true;
 }
 
-// --- AUTO SENSITIVITY CALIBRATION LOGIC ---
-async function startCalibration() {
+// --- 2. CALIBRATION SEQUENCE ---
+async function runCalibrationSequence() {
+    // Init Audio
     const ready = await initAudio();
     if(!ready) return;
-    
+
+    // UI Setup
     engine.isCalibrating = true;
-    engine.calibNoisePeak = 0; // Reset peak
-    ui.calibBtn.style.display = 'none';
-    ui.ovTitle.innerText = "CALIBRATING...";
-    ui.ovDesc.innerText = "Quiet please... Measuring metronome volume";
+    engine.running = false; // Pause game logic
+    engine.calibHits = [];
+    engine.calibNoisePeak = 0;
     
-    let count = 0;
-    const interval = setInterval(() => {
-        count++;
-        ui.calibCount.innerText = count + "/4";
-        playTestClick();
+    ui.btnCalibStart.style.display = 'none';
+    ui.btnRestart.style.display = 'none';
+    ui.ovTitle.innerText = "CALIBRATING";
+    ui.ovDesc.innerText = "Measuring Latency & Sensitivity...";
+    ui.calibCount.innerText = "READY...";
+
+    // Wait 1 sec then start 4 clicks
+    setTimeout(() => {
+        let count = 0;
+        const interval = setInterval(() => {
+            count++;
+            ui.calibCount.innerText = count + "/4";
+            playTestClick();
+            
+            if (count >= 4) {
+                clearInterval(interval);
+                setTimeout(finalizeCalibration, 800);
+            }
+        }, 800);
         
-        if (count >= 4) {
-            clearInterval(interval);
-            setTimeout(finishCalibration, 1000);
-        }
-    }, 800);
-    
-    calibLoop();
+        // Start Analysis Loop
+        requestAnimationFrame(calibAnalysisLoop);
+    }, 1000);
 }
 
 function playTestClick() {
     const osc = engine.ctx.createOscillator();
     const g = engine.ctx.createGain();
-    // Loud, sharp click
-    osc.frequency.value = 1500;
-    g.gain.value = 1.0; 
+    osc.type = 'square';
+    osc.frequency.value = 1000;
+    g.gain.value = 1.0;
     osc.connect(g); g.connect(engine.gain);
     const now = engine.ctx.currentTime;
-    osc.start(now); osc.stop(now + 0.05);
+    osc.start(now); osc.stop(now + 0.05); // 50ms click
+    
+    // Log send time
+    engine.calibHits.push({ send: now, recv: null });
 }
 
-function calibLoop() {
+function calibAnalysisLoop() {
     if(!engine.isCalibrating) return;
     
     const data = new Uint8Array(engine.analyser.frequencyBinCount);
     engine.analyser.getByteTimeDomainData(data);
+    
     let sum = 0;
-    for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
+    for(let i=0; i<data.length; i++) { 
+        const x = (data[i]-128)/128.0; 
+        sum += x*x; 
+    }
     const rms = Math.sqrt(sum / data.length);
     
-    // Record maximum RMS encountered during clicks
+    // 1. Detect Latency (Look for loud return)
+    // Use current slider thresh as baseline for detection
+    // or a fixed value. Fixed 0.05 is safer for "loud click".
+    if (rms > 0.05) {
+        const now = engine.ctx.currentTime;
+        // Find latest pending hit
+        const hit = engine.calibHits[engine.calibHits.length-1];
+        if(hit && !hit.recv && (now - hit.send < 0.5)) {
+            hit.recv = now;
+        }
+    }
+    
+    // 2. Detect Noise Floor / Bleed
+    // Keep track of max volume heard during calibration
     if (rms > engine.calibNoisePeak) {
         engine.calibNoisePeak = rms;
     }
     
-    requestAnimationFrame(calibLoop);
+    requestAnimationFrame(calibAnalysisLoop);
 }
 
-function finishCalibration() {
+function finalizeCalibration() {
     engine.isCalibrating = false;
     
-    // Logic: The peak noise we heard IS the metronome.
-    // We need to set threshold HIGHER than that.
-    // Let's add a safety margin (e.g. +20%)
-    let newThresh = engine.calibNoisePeak * 1.2;
+    // --- CALC LATENCY ---
+    let totalLat = 0;
+    let validCount = 0;
+    engine.calibHits.forEach(h => {
+        if(h.recv) {
+            totalLat += (h.recv - h.send);
+            validCount++;
+        }
+    });
     
-    // Clamp values to reasonable bounds
-    if (newThresh < 0.01) newThresh = 0.01; // Minimum floor
-    if (newThresh > 0.5) newThresh = 0.5; // Max ceiling
+    let newLat = 0.240; // Default fallback
+    if (validCount > 0) {
+        newLat = totalLat / validCount;
+        // Clamp safety
+        if(newLat < 0.01) newLat = 0.01;
+        if(newLat > 0.5) newLat = 0.5;
+    }
     
-    // Apply
+    // --- CALC SENSITIVITY ---
+    // We want thresh to be HIGHER than the noise peak we just heard.
+    // Safety margin: 1.5x
+    let newThresh = engine.calibNoisePeak * 1.5;
+    
+    // Clamp safety
+    if (newThresh < 0.01) newThresh = 0.01;
+    if (newThresh > 0.5) newThresh = 0.5;
+    
+    // --- APPLY & UPDATE UI ---
+    engine.latency = newLat;
+    ui.inLat.value = Math.round(newLat * 1000);
+    
     engine.thresh = newThresh;
-    // Update UI Slider (approximate)
-    let sliderVal = Math.round(newThresh * 500);
-    if(sliderVal < 1) sliderVal = 1;
-    if(sliderVal > 50) sliderVal = 50;
-    ui.inSens.value = sliderVal;
+    let sensVal = Math.round(newThresh * 500);
+    if(sensVal > 50) sensVal = 50;
+    if(sensVal < 1) sensVal = 1;
+    ui.inSens.value = sensVal;
     
-    // Close Overlay
+    // --- START GAME ---
     ui.overlay.style.display = 'none';
+    
+    // Reset overlay text for next time (Clear screen use)
     ui.ovTitle.innerText = "CLEAR!";
     ui.ovDesc.innerText = "Excellent Rhythm & Control";
+    ui.btnCalibStart.style.display = 'none';
+    ui.btnRestart.style.display = 'block';
     ui.calibCount.innerText = "";
-    ui.calibBtn.style.display = 'none'; 
-    ui.restart.style.display = 'block'; 
     
-    // Start Game Immediately
-    resetToReady();
-    ui.start.click(); 
+    // Trigger Game Start
+    startGame();
 }
 
-// --- RE-CALIB BTN ---
-ui.btnReCalib.addEventListener('click', () => {
-    engine.running = false; 
-    ui.stop.click();
+// --- GAME CONTROL ---
+function startGame() {
+    resetToReady();
+    engine.running = true;
+    engine.bpm = parseInt(ui.bpm.value);
+    engine.currentPattern = parseInt(ui.groove.value);
+    engine.pIndex = 0; engine.beatCount = 0; 
     
-    // Setup Overlay for Calibration
+    engine.nextTime = engine.ctx.currentTime + 0.1;
+    engine.startTime = engine.nextTime;
+    
+    engine.cycleHits = []; engine.targetQueue = [];
+    
+    engine.noteOn = false; 
+    engine.noteStart = 0; 
+    engine.lastHitId = -1; 
+    engine.lastBeatIndex = -1;
+    
+    ui.start.style.display = 'none'; ui.stop.classList.add('active');
+    scheduler(); detectionLoop();
+}
+
+// --- EVENT LISTENERS ---
+ui.btnCalibStart.addEventListener('click', runCalibrationSequence);
+ui.btnReCalib.addEventListener('click', () => {
+    // Stop game if running
+    if(engine.running) {
+        engine.running = false;
+        clearTimeout(engine.timerID);
+        ui.start.style.display = 'block'; ui.stop.classList.remove('active');
+    }
+    // Show Calibration Overlay
     ui.overlay.style.display = 'flex';
     ui.ovTitle.innerText = "SETUP";
-    ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>Check sensitivity.";
-    ui.calibBtn.style.display = 'block';
-    ui.restart.style.display = 'none';
+    ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>Tap to calibrate.";
+    ui.btnCalibStart.style.display = 'block';
+    ui.btnRestart.style.display = 'none';
     ui.calibCount.innerText = "";
 });
 
-// --- MAIN GAME LOGIC ---
+ui.start.addEventListener('click', () => {
+    if(!engine.running) {
+        // If already calibrated once, just start. Else calibrate?
+        // For simplicity, START button just starts game (using current settings)
+        // Assuming initAudio called via Calib first.
+        // But if user skips calib... we need init.
+        initAudio().then(() => startGame());
+    }
+});
 
+ui.stop.addEventListener('click', () => {
+    engine.running = false; clearTimeout(engine.timerID);
+    ui.start.style.display = 'block'; ui.stop.classList.remove('active');
+    ui.msg.classList.remove('blink');
+});
+
+ui.restart.addEventListener('click', () => {
+    ui.overlay.style.display = 'none';
+    resetToReady();
+});
+// Allow clicking background to close CLEAR screen (but not during Calib)
+ui.overlay.addEventListener('click', (e) => {
+    if(engine.isCalibrating) return;
+    if(e.target.tagName === "BUTTON") return;
+    // If it is CLEAR screen (restart btn visible), close it
+    if(ui.btnRestart.style.display === 'block') {
+        ui.overlay.style.display = 'none';
+        resetToReady();
+    }
+});
+
+ui.groove.addEventListener('change', () => {
+    engine.currentPattern = parseInt(ui.groove.value);
+    engine.pIndex = 0; 
+});
+
+// UI Sliders
+ui.inVol.addEventListener('input', e => { 
+    let v = e.target.value / 100; if(v <= 0) v = 0.0001; 
+    engine.vol = v; if(engine.gain) engine.gain.gain.value = engine.vol; 
+});
+ui.inSens.addEventListener('input', e => engine.thresh = e.target.value / 500);
+ui.inLat.addEventListener('input', e => engine.latency = e.target.value / 1000);
+
+// Internal Logic
 function scheduler() {
     while (engine.nextTime < engine.ctx.currentTime + 0.1) {
         scheduleNote(engine.nextTime);
@@ -581,34 +711,24 @@ function updateVisualizer(now) {
 
     const rad = (timeElapsed * Math.PI) / beatDur;
     const angle = Math.cos(rad) * 40; 
-    
     ui.pendulum.style.transform = `rotate(${angle}deg)`;
     
     const currentBeat = Math.floor((timeElapsed + 0.05) / beatDur);
-    
     if (currentBeat > engine.lastBeatIndex) {
         engine.lastBeatIndex = currentBeat;
-        if (currentBeat % 2 === 0) triggerImpact('R');
-        else triggerImpact('L');
+        if (currentBeat % 2 === 0) triggerImpact('R'); else triggerImpact('L');
     }
 }
 
 function triggerImpact(side) {
-    ui.flashL.classList.remove('hit-impact');
-    ui.flashR.classList.remove('hit-impact');
+    ui.flashL.classList.remove('hit-impact'); ui.flashR.classList.remove('hit-impact');
     void ui.flashL.offsetWidth; 
-    
-    if (side === 'L') ui.flashL.classList.add('hit-impact');
-    else ui.flashR.classList.add('hit-impact');
+    if (side === 'L') ui.flashL.classList.add('hit-impact'); else ui.flashR.classList.add('hit-impact');
 }
 
 function detectionLoop() {
     if (engine.isCalibrating) return;
-
-    if (!engine.running) {
-        ui.pendulum.style.transform = `rotate(40deg)`;
-        return;
-    }
+    if (!engine.running) { ui.pendulum.style.transform = `rotate(40deg)`; return; }
 
     const now = engine.ctx.currentTime;
     updateVisualizer(now);
@@ -619,65 +739,41 @@ function detectionLoop() {
     for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
     const rms = Math.sqrt(sum / data.length);
     
-    if (rms > engine.thresh) {
-        ui.inputLed.classList.add('on');
-        engine.noiseWarningCounter++;
-    } else {
-        ui.inputLed.classList.remove('on');
-        engine.noiseWarningCounter = 0;
-    }
+    if (rms > engine.thresh) { ui.inputLed.classList.add('on'); engine.noiseWarningCounter++; } 
+    else { ui.inputLed.classList.remove('on'); engine.noiseWarningCounter = 0; }
 
-    // Only warn noise if it sustains too long
     if (engine.noiseWarningCounter > 180) { 
-        ui.msg.innerText = "NOISE! (RESET SENS)";
-        ui.msg.style.color = "#ff3b30";
-        ui.inputLed.classList.add('noise');
-    } else {
-        ui.inputLed.classList.remove('noise');
-    }
+        ui.msg.innerText = "NOISE! (RESET SENS)"; ui.msg.style.color = "#ff3b30"; ui.inputLed.classList.add('noise');
+    } else { ui.inputLed.classList.remove('noise'); }
 
     if (!engine.noteOn && rms > engine.thresh) {
         if (now - engine.noteStart > 0.05) {
-            engine.noteOn = true; 
-            engine.noteStart = now; 
-            
+            engine.noteOn = true; engine.noteStart = now; 
             if (!engine.gameActive) {
-                engine.gameActive = true;
-                ui.msg.innerText = "COLLECT 4 STARS";
-                ui.msg.classList.remove('blink');
-                ui.msg.style.color = "#888";
-                engine.beatCount = 0; 
-                ui.bar.style.width = "0%";
+                engine.gameActive = true; ui.msg.innerText = "COLLECT 4 STARS"; ui.msg.classList.remove('blink'); ui.msg.style.color = "#888"; engine.beatCount = 0; ui.bar.style.width = "0%";
             }
             processHit(now);
         }
     }
-    
     if (engine.noteOn && rms < (engine.thresh * 0.6)) {
-        engine.noteOn = false; 
-        processRelease(now);
+        engine.noteOn = false; processRelease(now);
     }
-    
     drawScope(rms);
     requestAnimationFrame(detectionLoop);
 }
 
 function processHit(inputTime) {
     if (!engine.gameActive) return;
-
     const correctedTime = inputTime - engine.latency;
     let bestTarget = null; let minDiff = Infinity;
     engine.targetQueue.forEach(t => {
         const diff = Math.abs(correctedTime - t.time);
         if (diff < minDiff && !t.hit) { minDiff = diff; bestTarget = t; }
     });
-    
     if (bestTarget && minDiff < 0.25) { 
-        bestTarget.hit = true;
-        engine.lastHitId = bestTarget.id;
+        bestTarget.hit = true; engine.lastHitId = bestTarget.id;
         const diffMs = Math.round((correctedTime - bestTarget.time) * 1000);
-        renderTiming(diffMs);
-        bestTarget.actualStart = engine.noteStart;
+        renderTiming(diffMs); bestTarget.actualStart = engine.noteStart;
     } else if (bestTarget && minDiff < 0.35) {
         renderTiming(Math.round((correctedTime - bestTarget.time) * 1000), "POOR");
     }
@@ -688,9 +784,7 @@ function processRelease(releaseTime) {
     if (target && !target.processed) {
         const dur = releaseTime - target.actualStart;
         let pct = Math.round((dur / target.duration) * 100);
-        if(pct > 100) pct = 100;
-        if(dur < 0.03) return; 
-        
+        if(pct > 100) pct = 100; if(dur < 0.03) return; 
         target.processed = true;
         const judge = renderLegato(pct);
         engine.cycleHits.push({ timing: target.lastDiff, legato: pct });
@@ -702,19 +796,15 @@ function renderTiming(diff, forceJudge) {
     const abs = Math.abs(diff);
     let judge = "LATE"; let cls = "bg-b"; let col = "c-b";
     if (diff < 0) judge = "EARLY";
-    
-    if (forceJudge === "POOR") {
-        judge = "POOR"; cls = "bg-poor"; col = "c-poor";
-    } else {
+    if (forceJudge === "POOR") { judge = "POOR"; cls = "bg-poor"; col = "c-poor"; } 
+    else {
         if (abs <= 45) { judge = "PERFECT"; cls = "bg-p"; col = "c-p"; }
         else if (abs <= 100) { judge = "GOOD"; cls = "bg-g"; col = "c-g"; }
     }
-    
     ui.valTime.innerText = (diff>0?"+":"") + diff;
     ui.subTime.innerText = judge; ui.subTime.className = "card-sub " + col;
     ui.cardTime.className = "card " + cls;
     setTimeout(() => ui.cardTime.className = "card", 150);
-    
     const target = engine.targetQueue.find(t => t.id === engine.lastHitId);
     if(target) { target.lastDiff = diff; target.lastJudge = judge; }
 }
@@ -723,12 +813,10 @@ function renderLegato(pct) {
     let judge = "SHORT"; let cls = "bg-b"; let col = "c-b";
     if (pct >= 85) { judge = "EXCELLENT"; cls = "bg-p"; col = "c-p"; }
     else if (pct >= 60) { judge = "OK"; cls = "bg-g"; col = "c-g"; }
-    
     ui.valLeg.innerText = pct + "%";
     ui.subLeg.innerText = judge; ui.subLeg.className = "card-sub " + col;
     ui.cardLeg.className = "card " + cls;
     setTimeout(() => ui.cardLeg.className = "card", 150);
-    
     return judge;
 }
 
@@ -736,30 +824,12 @@ function addHistory(legJudge, legPct, timJudge, diff) {
     engine.totalHits++;
     const row = document.createElement('tr');
     row.className = "hist-new";
-    
-    let lCol = "c-b";
-    if(legJudge==="EXCELLENT") lCol = "c-p"; else if(legJudge==="OK") lCol = "c-g";
-    
+    let lCol = "c-b"; if(legJudge==="EXCELLENT") lCol = "c-p"; else if(legJudge==="OK") lCol = "c-g";
     if(!timJudge) timJudge = "MISS";
-    let tCol = "c-poor";
-    if(timJudge==="PERFECT") tCol = "c-p"; else if(timJudge==="GOOD") tCol = "c-g";
-    
-    row.innerHTML = `
-        <td class="col-idx">${engine.totalHits}</td>
-        <td class="col-tim ${tCol}">${timJudge}</td>
-        <td class="col-dif">${diff>0?"+"+diff:diff}</td>
-        <td class="col-leg ${lCol}">${legJudge}</td>
-        <td class="col-scr">${legPct}%</td>
-    `;
-    
-    if (ui.hist.firstChild) {
-        ui.hist.insertBefore(row, ui.hist.firstChild);
-    } else {
-        ui.hist.appendChild(row);
-    }
-    
+    let tCol = "c-poor"; if(timJudge==="PERFECT") tCol = "c-p"; else if(timJudge==="GOOD") tCol = "c-g";
+    row.innerHTML = `<td class="col-idx">${engine.totalHits}</td><td class="col-tim ${tCol}">${timJudge}</td><td class="col-dif">${diff>0?"+"+diff:diff}</td><td class="col-leg ${lCol}">${legJudge}</td><td class="col-scr">${legPct}%</td>`;
+    if (ui.hist.firstChild) ui.hist.insertBefore(row, ui.hist.firstChild); else ui.hist.appendChild(row);
     ui.histArea.scrollTop = 0;
-
     if (ui.hist.children.length > 50) ui.hist.lastChild.remove();
 }
 
@@ -797,11 +867,11 @@ function updateStars() {
 
 function finishGame() {
     engine.running = false; ui.stop.click(); ui.overlay.style.display = 'flex';
-    // Show Restart Button logic
     ui.ovTitle.innerText = "CLEAR!";
     ui.ovDesc.innerText = "Excellent Rhythm & Control";
+    ui.btnCalibStart.style.display = 'none';
     ui.btnRestart.style.display = 'block';
-    ui.calibBtn.style.display = 'none';
+    ui.calibCount.innerText = "";
 }
 
 function resetToReady() {
@@ -810,11 +880,9 @@ function resetToReady() {
     engine.gameActive = false; 
     engine.beatCount = 0;
     engine.totalHits = 0;
-    
     ui.bar.style.width = "0%"; 
     ui.msg.innerText = "LISTEN... PLAY TO START"; 
     ui.msg.style.color = "#00d2ff"; ui.msg.classList.add('blink');
-    
     ui.hist.innerHTML = "";
     ui.valTime.innerText = "--"; ui.subTime.innerText = "READY"; ui.subTime.className = "card-sub";
     ui.valLeg.innerText = "--"; ui.subLeg.innerText = "--"; ui.subLeg.className = "card-sub";
@@ -822,84 +890,19 @@ function resetToReady() {
 
 const ctxScope = ui.canvas.getContext('2d');
 const visualScale = 600; 
-
 function drawScope(rms) {
     const w = ui.canvas.width; const h = ui.canvas.height;
     ctxScope.fillStyle = '#000'; ctxScope.fillRect(0, 0, w, h);
-    
     const thY = h - (engine.thresh * visualScale);
-    
     ctxScope.strokeStyle = '#333'; ctxScope.beginPath(); ctxScope.moveTo(0, h/2); ctxScope.lineTo(w, h/2); ctxScope.stroke();
-    
     const safeThY = Math.max(0, thY); 
     ctxScope.strokeStyle = '#007bff'; ctxScope.lineWidth = 2; ctxScope.setLineDash([4,2]); ctxScope.beginPath(); 
     ctxScope.moveTo(0, safeThY); ctxScope.lineTo(w, safeThY); 
-    ctxScope.stroke(); ctxScope.setLineDash([]);
-    ctxScope.lineWidth = 1;
-
+    ctxScope.stroke(); ctxScope.setLineDash([]); ctxScope.lineWidth = 1;
     const barH = Math.min(rms * visualScale, h);
     ctxScope.fillStyle = engine.noteOn ? '#4cd964' : '#333';
     ctxScope.fillRect(w/2 - 20, h - barH, 40, barH);
 }
-
-// AUTO START CALIB ONLY ON FIRST CLICK
-ui.start.addEventListener('click', async () => {
-    if(engine.running) return;
-    
-    // First time init, show calib
-    if(!engine.ctx) {
-        ui.overlay.style.display = 'flex';
-        ui.ovTitle.innerText = "SETUP";
-        ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>Calibrating sensitivity...";
-        ui.calibBtn.style.display = 'block';
-        ui.restart.style.display = 'none';
-        return;
-    }
-
-    engine.running = true;
-    engine.bpm = parseInt(ui.bpm.value);
-    engine.currentPattern = parseInt(ui.groove.value);
-    engine.pIndex = 0; engine.beatCount = 0; 
-    
-    engine.nextTime = engine.ctx.currentTime + 0.1;
-    engine.startTime = engine.nextTime;
-    
-    engine.cycleHits = []; engine.targetQueue = [];
-    // Thresh is updated via slider/calib
-    
-    engine.noteOn = false; 
-    engine.noteStart = 0; 
-    engine.lastHitId = -1; 
-    engine.lastBeatIndex = -1;
-    
-    ui.start.style.display = 'none'; ui.stop.classList.add('active');
-    scheduler(); detectionLoop();
-});
-
-ui.stop.addEventListener('click', () => {
-    engine.running = false; clearTimeout(engine.timerID);
-    ui.start.style.display = 'block'; ui.stop.classList.remove('active');
-    ui.msg.classList.remove('blink');
-});
-
-ui.restart.addEventListener('click', resetToReady);
-ui.overlay.addEventListener('click', (e) => {
-    if(e.target !== ui.calibBtn && ui.calibBtn.style.display === 'none') resetToReady();
-});
-
-ui.groove.addEventListener('change', () => {
-    engine.currentPattern = parseInt(ui.groove.value);
-    engine.pIndex = 0; 
-});
-
-ui.inVol.addEventListener('input', e => { 
-    let v = e.target.value / 100; 
-    if(v <= 0) v = 0.0001; 
-    engine.vol = v; 
-    if(engine.gain) engine.gain.gain.value = engine.vol; 
-});
-ui.inSens.addEventListener('input', e => engine.thresh = e.target.value / 500);
-ui.inLat.addEventListener('input', e => engine.latency = e.target.value / 1000);
 
 function resize() { ui.canvas.width = ui.canvas.clientWidth; ui.canvas.height = ui.canvas.clientHeight; }
 window.addEventListener('resize', resize); resize();
