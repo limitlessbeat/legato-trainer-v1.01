@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Legato Trainer v39 - History Fixed</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Legato Trainer v40 - Mobile Layout Fix</title>
     <style>
-        /* --- v39 STYLE --- */
+        /* --- v40 STYLE (Mobile Optimized) --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -30,6 +31,7 @@
             padding: 0;
             display: flex;
             flex-direction: column;
+            /* Use dvh to handle mobile browser address bars correctly */
             height: 100dvh;
             overflow: hidden;
             user-select: none;
@@ -38,53 +40,58 @@
 
         /* HEADER */
         .header {
-            padding: 12px 15px;
+            /* Add safe-area for notch */
+            padding: calc(10px + env(safe-area-inset-top)) 15px 10px 15px;
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--c-border);
             flex-shrink: 0;
             z-index: 10; background: var(--c-bg);
         }
-        h1 { margin: 0; font-size: 0.9rem; font-weight: 800; letter-spacing: 1px; color: #ccc; }
+        h1 { margin: 0; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; color: #ccc; }
         .mode-select {
             background: #222; color: #fff; border: 1px solid #444;
-            padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; outline: none;
+            padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; outline: none;
             font-weight: bold;
         }
 
         /* METRONOME AREA */
         .metronome-area {
-            height: 220px; 
+            /* Flexible height for small screens */
+            height: 25vh; 
+            min-height: 160px; max-height: 220px;
             background: radial-gradient(circle at center bottom, #1a1a1a, #000);
             border-bottom: 1px solid var(--c-border);
             position: relative;
             overflow: hidden;
             flex-shrink: 0;
         }
+        
         .metro-arc {
-            position: absolute; bottom: 10px; left: 50%; margin-left: -140px;
-            width: 280px; height: 280px;
+            position: absolute; bottom: 10px; left: 50%; margin-left: -130px;
+            width: 260px; height: 260px;
             border-top: 1px solid #333; border-radius: 50%; opacity: 0.5;
         }
+        
         .target-line {
-            position: absolute; top: 50px; width: 4px; height: 60px;
+            position: absolute; top: 40px; width: 4px; height: 60px;
             background: #555; border-radius: 2px; z-index: 4;
         }
-        .target-l { left: 12%; transform: rotate(15deg); }
-        .target-r { right: 12%; transform: rotate(-15deg); }
+        .target-l { left: 15%; transform: rotate(15deg); }
+        .target-r { right: 15%; transform: rotate(-15deg); }
 
         .bumper {
-            position: absolute; top: 60px; width: 10px; height: 40px;
+            position: absolute; top: 50px; width: 8px; height: 40px;
             background: #333; border: 1px solid #555; border-radius: 4px; z-index: 5;
         }
-        .bumper-l { left: 10%; transform: rotate(15deg); }
-        .bumper-r { right: 10%; transform: rotate(-15deg); }
+        .bumper-l { left: 12%; transform: rotate(15deg); }
+        .bumper-r { right: 12%; transform: rotate(-15deg); }
         
         .bumper-flash {
-            position: absolute; top: 40px; width: 60px; height: 80px;
+            position: absolute; top: 30px; width: 50px; height: 70px;
             background: radial-gradient(circle, #fff 0%, transparent 70%);
             opacity: 0; pointer-events: none; mix-blend-mode: screen; z-index: 20;
         }
-        .flash-l { left: 5%; } .flash-r { right: 5%; }
+        .flash-l { left: 8%; } .flash-r { right: 8%; }
         .hit-impact { animation: flashAnim 0.15s ease-out; }
         @keyframes flashAnim { 0% { opacity: 1; transform: scale(1.5); } 100% { opacity: 0; transform: scale(1); } }
 
@@ -93,7 +100,8 @@
             position: absolute; bottom: -8px; left: 50%; margin-left: -8px; z-index: 10;
         }
         .pendulum-rod {
-            width: 4px; height: 200px;
+            width: 4px; 
+            height: 88%; /* Relative height to fit container */
             background: linear-gradient(90deg, #444, #888, #444);
             position: absolute; bottom: 0; left: 50%; margin-left: -2px;
             transform-origin: bottom center; 
@@ -101,74 +109,97 @@
             will-change: transform; z-index: 8;
         }
         .pendulum-weight {
-            width: 30px; height: 40px; background: linear-gradient(135deg, #333 0%, #111 100%);
+            width: 28px; height: 36px; background: linear-gradient(135deg, #333 0%, #111 100%);
             border: 2px solid var(--c-accent); border-radius: 4px;
-            position: absolute; top: 20px; left: 50%; margin-left: -15px;
+            position: absolute; top: 10%; left: 50%; margin-left: -14px;
             box-shadow: 0 0 10px rgba(0, 123, 255, 0.4); z-index: 9;
         }
 
-        /* UI COMMON */
+        /* STATUS */
         .status-bar {
-            padding: 10px; background: #080808;
-            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            padding: 8px; background: #080808;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
             border-bottom: 1px solid var(--c-border); flex-shrink: 0;
         }
-        .star-row { display: flex; gap: 15px; font-size: 1.5rem; color: #333; }
+        .star-row { display: flex; gap: 10px; font-size: 1.2rem; color: #333; }
         .star.active { color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.8); transform: scale(1.2); transition: transform 0.2s; }
-        .progress-track { width: 100%; height: 4px; background: #222; border-radius: 2px; overflow: hidden; margin-top: 5px;}
+        .progress-track { width: 100%; height: 4px; background: #222; border-radius: 2px; overflow: hidden; margin-top: 2px;}
         .progress-fill { width: 0%; height: 100%; background: var(--c-accent); transition: width 0.1s linear; }
         .status-msg { 
-            font-size: 0.75rem; color: var(--c-sub); height: 1.2em; margin-top: 2px; font-weight: bold; letter-spacing: 1px;
+            font-size: 0.7rem; color: var(--c-sub); height: 1.1em; margin-top: 2px; font-weight: bold; letter-spacing: 1px;
             animation: fadeIn 0.5s;
         }
         .blink { animation: pulse 1.5s infinite; color: #00d2ff; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        .metrics-area { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; flex-shrink: 0; }
-        .card {
-            background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 10px;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            padding: 15px 0; position: relative; transition: background 0.1s;
+        /* METRICS */
+        .metrics-area {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; flex-shrink: 0;
         }
-        .card-lbl { font-size: 0.65rem; color: var(--c-sub); position: absolute; top: 8px; letter-spacing: 1px; }
-        .card-val { font-size: 2.4rem; font-weight: 800; line-height: 1; margin-top: 5px;}
-        .card-sub { font-size: 0.9rem; font-weight: bold; margin-top: 5px; }
+        .card {
+            background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 8px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 10px 0; position: relative; transition: background 0.1s;
+        }
+        .card-lbl { font-size: 0.6rem; color: var(--c-sub); position: absolute; top: 6px; letter-spacing: 1px; }
+        .card-val { font-size: 2.0rem; font-weight: 800; line-height: 1; margin-top: 4px;}
+        .card-sub { font-size: 0.8rem; font-weight: bold; margin-top: 4px; }
 
-        .wave-area { padding: 0 10px 10px 10px; height: 60px; flex-shrink: 0; position: relative; }
+        /* WAVE */
+        .wave-area { padding: 0 8px 8px 8px; height: 50px; flex-shrink: 0; position: relative; }
         .canvas-wrapper {
             width: 100%; height: 100%; background: #000; border: 1px solid var(--c-border);
             border-radius: 6px; overflow: hidden; position: relative;
         }
         canvas { display: block; width: 100%; height: 100%; }
-        
         .input-led {
-            position: absolute; top: 5px; right: 15px; width: 12px; height: 12px; border-radius: 50%;
+            position: absolute; top: 5px; right: 10px; width: 10px; height: 10px; border-radius: 50%;
             background: #222; border: 1px solid #444; transition: background 0.05s; z-index: 10;
         }
         .input-led.on { background: #00d2ff; box-shadow: 0 0 10px #00d2ff; border-color: #fff; }
         .input-led.noise { background: #ff3b30; box-shadow: 0 0 10px #ff3b30; animation: pulse 0.2s infinite; }
 
-        .history-area { flex-grow: 1; overflow-y: auto; min-height: 0; border-top: 1px solid var(--c-border); background: #050505; position: relative; }
-        .hist-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        .hist-table th { text-align: left; padding: 8px; color: var(--c-sub); font-size: 0.65rem; position: sticky; top: 0; background: #111; z-index: 2; border-bottom: 1px solid var(--c-border); }
-        .hist-table td { padding: 8px; border-bottom: 1px solid #1a1a1a; }
+        /* HISTORY (Fills remaining space) */
+        .history-area {
+            flex: 1 1 auto; /* Takes remaining space */
+            overflow-y: auto; min-height: 0;
+            border-top: 1px solid var(--c-border); background: #050505; position: relative;
+        }
+        .hist-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .hist-table th { 
+            text-align: left; padding: 6px 8px; color: var(--c-sub); font-size: 0.6rem; 
+            position: sticky; top: 0; background: #111; z-index: 2; border-bottom: 1px solid var(--c-border);
+        }
+        .hist-table td { padding: 6px 8px; border-bottom: 1px solid #1a1a1a; }
         .hist-new { background: rgba(0, 123, 255, 0.15); border-left: 3px solid var(--c-accent); animation: flashRow 0.5s; }
-        
-        .controls-area { padding: 12px; background: #000; border-top: 1px solid var(--c-border); display: flex; gap: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); flex-shrink: 0; }
-        .bpm-box { background: #222; border-radius: 10px; width: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .bpm-input { background: transparent; border: none; color: #fff; width: 100%; text-align: center; font-size: 1.2rem; font-weight: bold; padding: 0; }
-        .bpm-lbl { font-size: 0.6rem; color: var(--c-sub); }
-        .btn { flex: 1; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer; padding: 12px; letter-spacing: 1px; }
-        .btn-start { background: var(--c-accent); color: white; }
-        .btn-stop { background: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; }
-        .btn-stop.active { opacity: 1; pointer-events: auto; }
 
+        /* SETTINGS */
         details { flex-shrink: 0; padding: 5px 10px; background: #080808; border-top: 1px solid #222; }
         summary { color: #555; font-size: 0.65rem; text-align: center; padding: 5px; cursor: pointer; list-style: none; }
         .settings-wrap { padding-bottom: 5px; display: flex; flex-direction: column; gap: 8px; }
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
 
+        /* CONTROLS (Bottom safe area fix) */
+        .controls-area {
+            background: #000; border-top: 1px solid var(--c-border);
+            display: flex; gap: 10px; 
+            /* Padding for bottom safe area (Home bar) + extra spacing */
+            padding: 12px 12px calc(20px + env(safe-area-inset-bottom)) 12px;
+            flex-shrink: 0;
+        }
+        .bpm-box { background: #222; border-radius: 10px; width: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .bpm-input { background: transparent; border: none; color: #fff; width: 100%; text-align: center; font-size: 1.1rem; font-weight: bold; padding: 0; }
+        .bpm-lbl { font-size: 0.55rem; color: var(--c-sub); }
+        .btn { 
+            flex: 1; border: none; border-radius: 10px; font-size: 1.0rem; font-weight: bold; 
+            cursor: pointer; padding: 12px; letter-spacing: 1px; 
+        }
+        .btn-start { background: var(--c-accent); color: white; }
+        .btn-stop { background: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; }
+        .btn-stop.active { opacity: 1; pointer-events: auto; }
+
+        /* OVERLAY */
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 99; display: none; flex-direction: column; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
         .overlay h2 { font-size: 2.5rem; color: var(--c-warn); margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 204, 0, 0.5); }
         .overlay p { color: #fff; margin-bottom: 30px; font-size: 0.9rem; }
@@ -184,7 +215,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v39</h1>
+    <h1>LEGATO TRAINER v40</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -291,7 +322,7 @@ const engine = {
     latency: 0.100,
     noteOn: false, noteStart: 0, lastHitId: -1,
     cycleHits: [], stars: 0,
-    totalHits: 0, // New counter for history
+    totalHits: 0,
     
     lastBeatIndex: -1,
     noiseWarningCounter: 0
@@ -529,24 +560,21 @@ function renderLegato(pct) {
 }
 
 function addHistory(judge, legato, diff) {
-    engine.totalHits++; // Increment total count
-    
+    engine.totalHits++;
     const row = document.createElement('tr');
     row.className = "hist-new";
     let col = "c-b";
     if(judge==="PERFECT") col = "c-p"; if(judge==="GOOD") col = "c-g";
     
-    // Show hit number
     row.innerHTML = `<td style="color:#555; font-size:0.6rem">${engine.totalHits}</td><td class="${col}" style="font-weight:bold">${judge}</td><td style="text-align:right">${legato}%</td><td style="text-align:right; font-family:monospace">${diff>0?"+"+diff:diff}</td>`;
     
-    // Use insertBefore to force PREPEND to top
     if (ui.hist.firstChild) {
         ui.hist.insertBefore(row, ui.hist.firstChild);
     } else {
         ui.hist.appendChild(row);
     }
     
-    // Force scroll to top to ensure user sees new item
+    // Force scroll to top
     ui.histArea.scrollTop = 0;
 
     if (ui.hist.children.length > 30) ui.hist.lastChild.remove();
@@ -593,7 +621,7 @@ function resetToReady() {
     engine.stars = 0; updateStars();
     engine.gameActive = false; 
     engine.beatCount = 0;
-    engine.totalHits = 0; // Reset count
+    engine.totalHits = 0;
     
     ui.bar.style.width = "0%"; 
     ui.msg.innerText = "LISTEN... PLAY TO START"; 
@@ -637,7 +665,6 @@ ui.start.addEventListener('click', async () => {
     engine.currentPattern = parseInt(ui.groove.value);
     engine.pIndex = 0; engine.beatCount = 0; 
     
-    // SYNC START
     engine.nextTime = engine.ctx.currentTime + 0.1;
     engine.startTime = engine.nextTime;
     
