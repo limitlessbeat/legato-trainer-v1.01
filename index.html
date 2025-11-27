@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v43 - Variable Swing</title>
+    <title>Legato Trainer v44 - Seamless Groove</title>
     <style>
-        /* --- v43 STYLE --- */
+        /* --- v44 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -101,7 +101,7 @@
             background: linear-gradient(90deg, #444, #888, #444);
             position: absolute; bottom: 0; left: 50%; margin-left: -2px;
             transform-origin: bottom center; 
-            transform: rotate(40deg); /* Init Right */
+            transform: rotate(40deg);
             will-change: transform; z-index: 8;
         }
         .pendulum-weight {
@@ -209,7 +209,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v43</h1>
+    <h1>LEGATO TRAINER v44</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -309,8 +309,10 @@ const engine = {
     startTime: 0, 
     
     patterns: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
-    currentPattern: 1, pIndex: 0, beatCount: 0,
-    totalNoteCount: 0, // For alternating swing direction
+    currentPattern: 1, 
+    pendingPattern: 1, // FIX: For seamless switching
+    pIndex: 0, beatCount: 0, 
+    totalNoteCount: 0,
     
     targetQueue: [], vol: 0.5, 
     thresh: 0.012, 
@@ -383,11 +385,11 @@ function scheduleNote(time) {
     osc.start(time); osc.stop(time + 0.04);
 
     engine.targetQueue = engine.targetQueue.filter(t => t.time > engine.ctx.currentTime - 1.0);
+    
+    // Use currentPattern
     const pattern = engine.patterns[engine.currentPattern];
     const dur = (60 / engine.bpm) * pattern[engine.pIndex];
     
-    // Determine swing direction: even counts swing R->L (-1), odd L->R (1)
-    // Default start: swing from Right to Left (-1)
     const dir = (engine.totalNoteCount % 2 === 0) ? -1 : 1;
     engine.totalNoteCount++;
 
@@ -398,64 +400,46 @@ function advanceNote() {
     const pattern = engine.patterns[engine.currentPattern];
     const secondsPerBeat = 60.0 / engine.bpm;
     engine.nextTime += secondsPerBeat * pattern[engine.pIndex];
+    
     engine.pIndex++;
+    // Check if pattern finished
     if (engine.pIndex >= pattern.length) {
         engine.pIndex = 0;
         engine.beatCount++;
+        
+        // FIX: Switch pending groove seamlessly here (at start of new beat)
+        if (engine.pendingPattern !== engine.currentPattern) {
+            engine.currentPattern = engine.pendingPattern;
+        }
+        
         if (engine.gameActive) updateGameProgress();
     }
 }
 
 function updateVisualizer(now) {
-    // Identify the note currently "playing" (or about to play) to sync pendulum speed
-    // Logic: Pendulum position depends on progress through current note duration
-    
-    // Find active note (covering current time) or nearest future note
     let activeNote = engine.targetQueue.find(n => now >= n.time && now < n.time + n.duration);
-    
     if (!activeNote) {
-        // Fallback: find very next note
         activeNote = engine.targetQueue.find(n => n.time > now);
     }
 
     if (activeNote) {
-        // Progress 0.0 (Start of Note) -> 1.0 (End of Note)
         let progress = (now - activeNote.time) / activeNote.duration;
-        
-        // Cap progress for visual stability
         if (progress < 0) progress = 0;
         if (progress > 1) progress = 1;
 
-        // Calculate Angle
-        // If swingDir is -1 (Right->Left): Start +40, End -40.
-        // Formula: +40 * Cos(progress * PI)
-        //   p=0 -> cos=1 -> +40 (Right)
-        //   p=1 -> cos=-1 -> -40 (Left)
-        
-        // If swingDir is 1 (Left->Right): Start -40, End +40.
-        // Formula: -40 * Cos(progress * PI)
-        
-        // Generalized: -40 * swingDir * Cos(progress * PI)
-        // Wait, if dir=-1, we want +40 start. -40 * -1 = +40. Correct.
-        
         const rad = progress * Math.PI;
         const angle = -40 * activeNote.swingDir * Math.cos(rad);
         
         ui.pendulum.style.transform = `rotate(${angle}deg)`;
         
-        // Flash Logic: Trigger when a NEW note starts (id changes)
         if (activeNote.id !== engine.lastVisualNoteId) {
-            // Only trigger if it's not the initial setup
             if (engine.lastVisualNoteId !== -1) {
-                // Trigger Flash on the side where the note STARTS
-                // dir -1 (Right->Left) starts at Right.
                 if (activeNote.swingDir === -1) triggerImpact('R');
                 else triggerImpact('L');
             }
             engine.lastVisualNoteId = activeNote.id;
         }
     } else {
-        // Default idle state
         ui.pendulum.style.transform = `rotate(40deg)`;
     }
 }
@@ -698,6 +682,8 @@ ui.start.addEventListener('click', async () => {
     engine.running = true;
     engine.bpm = parseInt(ui.bpm.value);
     engine.currentPattern = parseInt(ui.groove.value);
+    engine.pendingPattern = engine.currentPattern;
+    
     engine.pIndex = 0; engine.beatCount = 0; engine.totalNoteCount = 0;
     
     engine.nextTime = engine.ctx.currentTime + 0.1;
@@ -723,9 +709,9 @@ ui.stop.addEventListener('click', () => {
 
 ui.restart.addEventListener('click', resetToReady);
 
+// FIX: Use pendingPattern for smooth switching
 ui.groove.addEventListener('change', () => {
-    engine.currentPattern = parseInt(ui.groove.value);
-    engine.pIndex = 0; 
+    engine.pendingPattern = parseInt(ui.groove.value);
 });
 
 ui.inVol.addEventListener('input', e => { 
