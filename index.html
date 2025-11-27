@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v53 - Red Line Fix</title>
+    <title>Legato Trainer v54 - Auto Setup</title>
     <style>
-        /* --- v53 STYLE --- */
+        /* --- v54 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -19,6 +19,7 @@
             --c-warn: #ffcc00;
             --c-bad: #ff3b30;
             --c-poor: #666;
+            --c-calib: #9d00ff; /* Calibration Color */
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -180,20 +181,27 @@
         .col-leg { width: 25%; font-weight: 800; font-size: 0.7rem; text-align: right;}
         .col-scr { width: 15%; font-weight: bold; text-align: right; }
 
-        /* SETTINGS */
+        /* SETTINGS & AUTO SETUP */
         details { flex-shrink: 0; padding: 2px 10px; background: #080808; border-top: 1px solid #222; }
         summary { color: #555; font-size: 0.6rem; text-align: center; padding: 4px; cursor: pointer; list-style: none; }
         .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 4px; }
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
+        
+        .btn-calib {
+            width: 100%; border: 1px solid var(--c-calib); background: rgba(157, 0, 255, 0.1); color: var(--c-calib);
+            font-size: 0.7rem; font-weight: bold; padding: 8px; border-radius: 6px; cursor: pointer;
+            margin-bottom: 5px; transition: background 0.2s;
+        }
+        .btn-calib:active { background: var(--c-calib); color: #fff; }
 
-        /* CONTROLS (Fixed Height) */
+        /* CONTROLS */
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
             display: flex; gap: 8px; 
-            padding: 8px;
+            padding: 8px 8px calc(28px + env(safe-area-inset-bottom)) 8px;
             flex-shrink: 0;
-            align-items: center;
+            position: relative;
         }
         .bpm-box { background: #222; border-radius: 8px; width: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .bpm-input { background: transparent; border: none; color: #fff; width: 100%; text-align: center; font-size: 1.0rem; font-weight: bold; padding: 0; }
@@ -203,28 +211,29 @@
             cursor: pointer; padding: 10px; letter-spacing: 1px; 
         }
         .btn-start { background: var(--c-accent); color: white; }
-        .btn-stop { 
-            background-color: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; 
-            border: none; box-shadow: none; /* Clean styles */
-        }
+        .btn-stop { background: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; }
         .btn-stop.active { opacity: 1; pointer-events: auto; }
 
-        /* FOOTER (New Container for Credit) */
-        .footer {
-            background: #000;
-            padding: 2px 0 calc(2px + env(safe-area-inset-bottom)) 0;
-            text-align: center;
-            flex-shrink: 0;
-        }
+        /* CREDIT */
         .credit {
-            font-size: 0.5rem; line-height: 1.3; color: #444;
-            font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase;
+            position: absolute;
+            bottom: calc(4px + env(safe-area-inset-bottom));
+            left: 0; width: 100%;
+            text-align: center;
+            font-size: 0.5rem;
+            line-height: 1.3;
+            color: #444;
+            pointer-events: none;
+            z-index: 20;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
         /* OVERLAY */
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 99; display: none; flex-direction: column; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
         .overlay h2 { font-size: 2.5rem; color: var(--c-warn); margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 204, 0, 0.5); }
-        .overlay p { color: #fff; margin-bottom: 30px; font-size: 0.9rem; }
+        .overlay p { color: #fff; margin-bottom: 30px; font-size: 0.9rem; text-align: center; line-height: 1.5; padding: 0 20px; }
         .btn-restart { padding: 15px 40px; border-radius: 30px; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; background: #fff; color: #000; }
        
         .c-p { color: var(--c-good); } .c-g { color: var(--c-warn); } .c-b { color: var(--c-bad); } .c-poor { color: var(--c-poor); }
@@ -237,7 +246,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v53</h1>
+    <h1>LEGATO TRAINER v54</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -306,6 +315,8 @@
 <details>
     <summary>SETTINGS ▼</summary>
     <div class="settings-wrap">
+        <button id="btnCalib" class="btn-calib">🪄 AUTO SETUP (Sens & Latency)</button>
+        
         <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="50"></div>
         <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
         <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="240"></div>
@@ -319,9 +330,7 @@
     </div>
     <button id="btnStart" class="btn btn-start">START</button>
     <button id="btnStop" class="btn btn-stop">STOP</button>
-</div>
-
-<div class="footer">
+    
     <div class="credit">
         Takeshi Ohbayashi presents<br>
         <span style="font-weight:normal; opacity:0.7">created by DONGURI Music & Arts</span>
@@ -329,8 +338,8 @@
 </div>
 
 <div id="overlay" class="overlay">
-    <h2>CLEAR!</h2>
-    <p>Excellent Rhythm & Control</p>
+    <h2 id="ovTitle">CLEAR!</h2>
+    <p id="ovMsg">Excellent Rhythm & Control</p>
     <button id="btnRestart" class="btn-restart">NEXT CHALLENGE</button>
 </div>
 
@@ -339,6 +348,8 @@ const engine = {
     ctx: null, mic: null, analyser: null, gain: null,
     running: false, 
     gameActive: false, 
+    calibMode: false, // 'noise' or 'latency'
+    
     bpm: 90, nextTime: 0,
     startTime: 0, 
     
@@ -353,13 +364,19 @@ const engine = {
     totalHits: 0,
     
     lastBeatIndex: -1,
-    noiseWarningCounter: 0
+    noiseWarningCounter: 0,
+    
+    // Calibration Vars
+    calibMaxRms: 0,
+    calibStartTime: 0,
+    calibBeepTime: 0
 };
 
 const ui = {
     start: document.getElementById('btnStart'),
     stop: document.getElementById('btnStop'),
     restart: document.getElementById('btnRestart'),
+    calib: document.getElementById('btnCalib'),
     bpm: document.getElementById('inBpm'),
     groove: document.getElementById('grooveSelect'),
     canvas: document.getElementById('scope'),
@@ -376,7 +393,8 @@ const ui = {
     stars: [document.getElementById('s1'), document.getElementById('s2'), document.getElementById('s3'), document.getElementById('s4')],
     inputLed: document.getElementById('inputLed'),
     inVol: document.getElementById('inVol'), inSens: document.getElementById('inSens'), inLat: document.getElementById('inLat'),
-    overlay: document.getElementById('overlay')
+    overlay: document.getElementById('overlay'),
+    ovTitle: document.getElementById('ovTitle'), ovMsg: document.getElementById('ovMsg'), btnRestart: document.getElementById('btnRestart')
 };
 
 async function initAudio() {
@@ -399,11 +417,12 @@ async function initAudio() {
 }
 
 function scheduler() {
+    if (!engine.running) return;
     while (engine.nextTime < engine.ctx.currentTime + 0.1) {
         scheduleNote(engine.nextTime);
         advanceNote();
     }
-    if (engine.running) setTimeout(scheduler, 25);
+    setTimeout(scheduler, 25);
 }
 
 function scheduleNote(time) {
@@ -441,11 +460,9 @@ function updateVisualizer(now) {
 
     const rad = (timeElapsed * Math.PI) / beatDur;
     const angle = Math.cos(rad) * 40; 
-    
     ui.pendulum.style.transform = `rotate(${angle}deg)`;
     
     const currentBeat = Math.floor((timeElapsed + 0.05) / beatDur);
-    
     if (currentBeat > engine.lastBeatIndex) {
         engine.lastBeatIndex = currentBeat;
         if (currentBeat % 2 === 0) triggerImpact('R');
@@ -457,9 +474,111 @@ function triggerImpact(side) {
     ui.flashL.classList.remove('hit-impact');
     ui.flashR.classList.remove('hit-impact');
     void ui.flashL.offsetWidth; 
-    
     if (side === 'L') ui.flashL.classList.add('hit-impact');
     else ui.flashR.classList.add('hit-impact');
+}
+
+// --- AUTO CALIBRATION LOGIC ---
+async function startAutoSetup() {
+    const ready = await initAudio();
+    if(!ready) return;
+    
+    // Step 1: Noise Calibration
+    engine.calibMode = 'noise';
+    engine.calibMaxRms = 0;
+    engine.calibStartTime = engine.ctx.currentTime;
+    
+    ui.overlay.style.display = 'flex';
+    ui.ovTitle.innerText = "QUIET PLEASE";
+    ui.ovTitle.style.color = "var(--c-calib)";
+    ui.ovMsg.innerText = "Measuring room noise...\n(2 seconds)";
+    ui.btnRestart.style.display = 'none'; // Hide button during process
+    
+    requestAnimationFrame(calibrationLoop);
+}
+
+function calibrationLoop() {
+    const now = engine.ctx.currentTime;
+    const data = new Uint8Array(engine.analyser.frequencyBinCount);
+    engine.analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
+    const rms = Math.sqrt(sum / data.length);
+    
+    drawScope(rms); // Show wave so user knows it's working
+
+    if (engine.calibMode === 'noise') {
+        if (rms > engine.calibMaxRms) engine.calibMaxRms = rms;
+        
+        if (now - engine.calibStartTime > 2.0) {
+            // Apply Noise Thresh
+            // Safety margin: 1.5x max noise, minimum 0.005
+            let newThresh = Math.max(engine.calibMaxRms * 1.5, 0.005);
+            engine.thresh = newThresh;
+            // Update slider UI
+            ui.inSens.value = Math.min(50, Math.round(newThresh * 500));
+            
+            // Move to Step 2: Latency
+            engine.calibMode = 'latency_wait';
+            ui.ovTitle.innerText = "LATENCY TEST";
+            ui.ovMsg.innerText = "Turn up volume.\nPlaying a beep in 1s...";
+            setTimeout(() => {
+                playCalibBeep();
+            }, 1000);
+        } else {
+            requestAnimationFrame(calibrationLoop);
+        }
+    } 
+    else if (engine.calibMode === 'latency_listen') {
+        // Wait for input spike above threshold
+        if (rms > engine.thresh * 2.0) { // Strong signal needed
+            const diff = now - engine.calibBeepTime;
+            // Valid latency usually 0.01 - 0.5s
+            if (diff > 0.01 && diff < 0.5) {
+                engine.latency = diff;
+                ui.inLat.value = Math.round(diff * 1000);
+                finishCalibration("SUCCESS", `Sens: ${ui.inSens.value} / Latency: ${ui.inLat.value}ms`);
+                return;
+            }
+        }
+        // Timeout 1s
+        if (now - engine.calibBeepTime > 1.0) {
+            finishCalibration("TIMEOUT", "Could not hear beep.\nUsed Noise settings only.");
+            return;
+        }
+        requestAnimationFrame(calibrationLoop);
+    }
+}
+
+function playCalibBeep() {
+    engine.calibMode = 'latency_listen';
+    ui.ovMsg.innerText = "Listening...";
+    
+    const osc = engine.ctx.createOscillator();
+    const g = engine.ctx.createGain();
+    osc.frequency.value = 2000; // Sharp beep
+    g.gain.value = 1.0;
+    osc.connect(g); g.connect(engine.gain);
+    
+    engine.calibBeepTime = engine.ctx.currentTime;
+    osc.start(engine.calibBeepTime);
+    osc.stop(engine.calibBeepTime + 0.05);
+    
+    requestAnimationFrame(calibrationLoop);
+}
+
+function finishCalibration(status, msg) {
+    engine.calibMode = false;
+    ui.ovTitle.innerText = status === "SUCCESS" ? "SETUP DONE!" : "SETUP PARTIAL";
+    ui.ovTitle.style.color = status === "SUCCESS" ? "var(--c-good)" : "var(--c-warn)";
+    ui.ovMsg.innerText = msg;
+    
+    ui.btnRestart.style.display = 'block';
+    ui.btnRestart.innerText = "OK";
+    ui.btnRestart.onclick = () => {
+        ui.overlay.style.display = 'none';
+        ui.btnRestart.onclick = resetToReady; // Restore normal behavior
+    };
 }
 
 function detectionLoop() {
@@ -654,6 +773,11 @@ function updateStars() {
 
 function finishGame() {
     engine.running = false; ui.stop.click(); ui.overlay.style.display = 'flex';
+    ui.ovTitle.innerText = "CLEAR!";
+    ui.ovTitle.style.color = "var(--c-warn)";
+    ui.ovMsg.innerText = "Excellent Rhythm & Control";
+    ui.btnRestart.innerText = "NEXT CHALLENGE";
+    ui.btnRestart.onclick = resetToReady;
 }
 
 function resetToReady() {
@@ -727,6 +851,7 @@ ui.stop.addEventListener('click', () => {
 });
 
 ui.restart.addEventListener('click', resetToReady);
+ui.calib.addEventListener('click', startAutoSetup);
 
 ui.groove.addEventListener('change', () => {
     engine.currentPattern = parseInt(ui.groove.value);
