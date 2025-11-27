@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v55 - Auto Calibration</title>
+    <title>Legato Trainer v56 - Re-Calibration</title>
     <style>
-        /* --- v55 STYLE --- */
+        /* --- v56 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -186,6 +186,13 @@
         .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 4px; }
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
+        
+        /* New Mini Button for Settings */
+        .btn-mini {
+            padding: 4px 10px; border-radius: 15px; border: 1px solid #555;
+            background: #333; color: #fff; font-size: 0.6rem; font-weight: bold;
+            cursor: pointer;
+        }
 
         /* CONTROLS */
         .controls-area {
@@ -206,6 +213,7 @@
         .btn-stop { background: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; }
         .btn-stop.active { opacity: 1; pointer-events: auto; }
 
+        /* CREDIT */
         .credit {
             position: absolute;
             bottom: calc(4px + env(safe-area-inset-bottom));
@@ -221,7 +229,7 @@
             text-transform: uppercase;
         }
 
-        /* CALIBRATION & OVERLAY */
+        /* OVERLAY */
         .overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.98); z-index: 9999; 
@@ -257,7 +265,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v55</h1>
+    <h1>LEGATO TRAINER v56</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -326,6 +334,7 @@
 <details>
     <summary>SETTINGS ▼</summary>
     <div class="settings-wrap">
+        <div class="setting-item"><span>Auto Calib</span> <button id="btnReCalib" class="btn-mini">RUN</button></div>
         <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="50"></div>
         <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
         <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="240"></div>
@@ -375,7 +384,6 @@ const engine = {
     lastBeatIndex: -1,
     noiseWarningCounter: 0,
     
-    // Calibration State
     isCalibrating: false,
     calibHits: []
 };
@@ -385,6 +393,7 @@ const ui = {
     stop: document.getElementById('btnStop'),
     restart: document.getElementById('btnRestart'),
     calibBtn: document.getElementById('btnCalib'),
+    btnReCalib: document.getElementById('btnReCalib'),
     bpm: document.getElementById('inBpm'),
     groove: document.getElementById('grooveSelect'),
     canvas: document.getElementById('scope'),
@@ -449,7 +458,6 @@ async function startCalibration() {
         }
     }, 1000);
     
-    // Start listening loop for calibration
     calibLoop();
 }
 
@@ -462,7 +470,6 @@ function playTestClick() {
     const now = engine.ctx.currentTime;
     osc.start(now); osc.stop(now + 0.05);
     
-    // Record send time
     engine.calibHits.push({ send: now, recv: null });
 }
 
@@ -475,10 +482,8 @@ function calibLoop() {
     for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
     const rms = Math.sqrt(sum / data.length);
     
-    // High threshold to avoid background noise, only catch the loud click
     if (rms > 0.1) {
         const now = engine.ctx.currentTime;
-        // Find the latest pending hit
         const hit = engine.calibHits[engine.calibHits.length-1];
         if(hit && !hit.recv && (now - hit.send < 0.5)) {
             hit.recv = now;
@@ -490,7 +495,6 @@ function calibLoop() {
 function finishCalibration() {
     engine.isCalibrating = false;
     
-    // Calculate average latency
     let totalLat = 0;
     let validCount = 0;
     engine.calibHits.forEach(h => {
@@ -500,29 +504,40 @@ function finishCalibration() {
         }
     });
     
-    let resultLat = 0.240; // Fallback default
+    let resultLat = 0.240; 
     if (validCount > 0) {
         resultLat = totalLat / validCount;
-        // Safety clamp
         if(resultLat < 0.01) resultLat = 0.05;
         if(resultLat > 0.5) resultLat = 0.5;
     }
     
-    // Apply
     engine.latency = resultLat;
     ui.inLat.value = Math.round(resultLat * 1000);
     
-    // Close Overlay
+    // RESET OVERLAY TO CLEAR/RESTART MODE
     ui.overlay.style.display = 'none';
     ui.ovTitle.innerText = "CLEAR!";
     ui.ovDesc.innerText = "Excellent Rhythm & Control";
     ui.calibCount.innerText = "";
-    ui.calibBtn.style.display = 'none'; // Hide calib button for next time
-    ui.restart.style.display = 'block'; // Show normal restart button
+    ui.calibBtn.style.display = 'none'; 
+    ui.restart.style.display = 'block'; 
     
-    // Reset Game
     resetToReady();
 }
+
+// --- RE-CALIB BTN ---
+ui.btnReCalib.addEventListener('click', () => {
+    engine.running = false; 
+    ui.stop.click();
+    
+    // Setup Overlay for Calibration
+    ui.overlay.style.display = 'flex';
+    ui.ovTitle.innerText = "SETUP";
+    ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>We will check latency.";
+    ui.calibBtn.style.display = 'block';
+    ui.restart.style.display = 'none';
+    ui.calibCount.innerText = "";
+});
 
 // --- MAIN GAME LOGIC ---
 
@@ -591,7 +606,7 @@ function triggerImpact(side) {
 }
 
 function detectionLoop() {
-    if (engine.isCalibrating) return; // Skip during calib
+    if (engine.isCalibrating) return;
 
     if (!engine.running) {
         ui.pendulum.style.transform = `rotate(40deg)`;
@@ -829,7 +844,6 @@ function drawScope(rms) {
     ctxScope.fillRect(w/2 - 20, h - barH, 40, barH);
 }
 
-// EVENTS
 ui.calibBtn.addEventListener('click', startCalibration);
 ui.start.addEventListener('click', async () => {
     if(engine.running) return;
@@ -865,7 +879,7 @@ ui.stop.addEventListener('click', () => {
 
 ui.restart.addEventListener('click', resetToReady);
 ui.overlay.addEventListener('click', (e) => {
-    if(e.target !== ui.calibBtn) resetToReady();
+    if(e.target !== ui.calibBtn && ui.calibBtn.style.display === 'none') resetToReady();
 });
 
 ui.groove.addEventListener('change', () => {
