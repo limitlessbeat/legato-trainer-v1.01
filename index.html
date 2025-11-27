@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v70 - Calibration Final Fix</title>
+    <title>Legato Trainer v71 - Visual Confirmation</title>
     <style>
-        /* --- v70 STYLE --- */
+        /* --- v71 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -169,6 +169,9 @@
             display: flex; align-items: center; justify-content: center;
         }
         .btn-adj:active { background: #444; }
+        
+        /* Small Value display for Latency */
+        .val-disp { font-family: monospace; color: var(--c-accent); width: 30px; text-align: right; }
 
         /* CONTROLS */
         .controls-area {
@@ -316,6 +319,7 @@
         <div class="setting-item">
             <span>Latency</span>
             <div class="setting-row">
+                <span id="valLatDisp" class="val-disp">80</span>
                 <button id="btnLatMinus" class="btn-adj">-</button>
                 <input type="range" id="inLat" min="0" max="400" value="80">
                 <button id="btnLatPlus" class="btn-adj">+</button>
@@ -353,8 +357,7 @@
 const CONFIG = {
     PATTERNS: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
     THRESH_DEFAULT: 0.02, 
-    // FIX: Better default for iPhone
-    LATENCY_DEFAULT: 0.080, 
+    LATENCY_DEFAULT: 0.080, // 80ms as safer default for iPhone
     CALIB_CLICKS: 8,
     NOISE_LIMIT: 180
 };
@@ -394,7 +397,7 @@ const AudioSys = {
         if(!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
-        // NOISE BURST for sharper detection
+        // Noise Burst for calibration
         osc.type = 'sawtooth';
         osc.frequency.value = 800;
         g.gain.value = Game.vol;
@@ -409,10 +412,7 @@ const AudioSys = {
         const data = new Uint8Array(this.analyser.frequencyBinCount);
         this.analyser.getByteTimeDomainData(data);
         let sum = 0;
-        for(let i=0; i<data.length; i++) { 
-            const x = (data[i]-128)/128.0; 
-            sum += x*x; 
-        }
+        for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
         return Math.sqrt(sum / data.length);
     }
 };
@@ -448,6 +448,7 @@ const View = {
         inVol: document.getElementById('inVol'),
         inSens: document.getElementById('inSens'),
         inLat: document.getElementById('inLat'),
+        valLatDisp: document.getElementById('valLatDisp'),
         inBpm: document.getElementById('inBpm'),
         groove: document.getElementById('grooveSelect'),
         btnVolMinus: document.getElementById('btnVolMinus'),
@@ -515,6 +516,9 @@ const View = {
         this.els.histArea.scrollTop = 0;
         if (this.els.hist.children.length > 50) this.els.hist.lastChild.remove();
     },
+    updateLatDisp(val) {
+        this.els.valLatDisp.innerText = val;
+    },
     resetGameUI() {
         this.els.bar.style.width = "0%";
         this.els.msg.innerText = "LISTEN... PLAY TO START";
@@ -525,7 +529,7 @@ const View = {
         this.els.stop.classList.remove('active');
         this.els.start.style.display = 'block';
     },
-    showOverlay(mode) {
+    showOverlay(mode, extraText) {
         this.els.overlay.style.display = 'flex';
         this.els.calibBtn.style.display = 'none';
         this.els.restartBtn.style.display = 'none';
@@ -541,6 +545,12 @@ const View = {
         } else if (mode === 'clear') {
             this.els.ovTitle.innerText = "CLEAR!";
             this.els.ovDesc.innerText = "Excellent Rhythm & Control";
+            this.els.restartBtn.innerText = "NEXT CHALLENGE";
+            this.els.restartBtn.style.display = 'block';
+        } else if (mode === 'result') {
+            this.els.ovTitle.innerText = "DONE";
+            this.els.ovDesc.innerHTML = extraText || "";
+            this.els.restartBtn.innerText = "START GAME";
             this.els.restartBtn.style.display = 'block';
         }
     }
@@ -580,7 +590,7 @@ const Game = {
     calibLoop() {
         if(!this.calibrating) return;
         const rms = AudioSys.getRMS();
-        // SENSITIVE DETECTION (0.005) for calibration to catch quiet speakers
+        // Very sensitive detection for calibration (0.005)
         if (rms > 0.005) {
             const now = AudioSys.ctx.currentTime;
             const hit = this.calibHits[this.calibHits.length-1];
@@ -593,8 +603,7 @@ const Game = {
         this.calibrating = false;
         let count = 0;
         let minLat = Infinity; 
-        
-        // Discard first 2 hits (warmup)
+        // Discard first 2 hits
         const validHits = this.calibHits.slice(2);
         validHits.forEach(h => {
             if(h.recv) { 
@@ -604,16 +613,23 @@ const Game = {
             }
         });
         
+        let result = 0.080; // Default 80ms if failed
+        let msg = "Calibration Failed.<br>Using default 80ms.";
+        
         if (count > 0) {
-            // FIX: USE 100% of Measured Minimum Latency (No reduction)
-            let result = minLat; 
+            // FIX: USE 100% of Measured Minimum Latency
+            result = minLat; 
             if(result < 0.01) result = 0.01; 
             if(result > 0.5) result = 0.5;
-            this.latency = result;
-            View.els.inLat.value = Math.round(result * 1000);
+            msg = `Latency: ${Math.round(result*1000)}ms<br>Correction Applied.`;
         }
-        View.els.overlay.style.display = 'none';
-        this.startGame();
+        
+        this.latency = result;
+        const latMs = Math.round(result * 1000);
+        View.els.inLat.value = latMs;
+        View.updateLatDisp(latMs);
+        
+        View.showOverlay('result', msg);
     },
     
     startGame() {
@@ -731,9 +747,15 @@ const Game = {
 View.init();
 View.els.inVol.value = Game.vol * 100;
 View.els.inSens.value = Game.thresh * 500;
+View.els.inLat.value = Game.latency * 1000;
+View.updateLatDisp(Math.round(Game.latency * 1000));
+
 View.els.inVol.addEventListener('input', e => { Game.vol = e.target.value/100 || 0.0001; if(AudioSys.gain) AudioSys.gain.gain.value = Game.vol; });
 View.els.inSens.addEventListener('input', e => Game.thresh = e.target.value/500);
-View.els.inLat.addEventListener('input', e => Game.latency = e.target.value/1000);
+View.els.inLat.addEventListener('input', e => {
+    Game.latency = e.target.value/1000;
+    View.updateLatDisp(e.target.value);
+});
 View.els.inBpm.addEventListener('change', e => Game.bpm = parseInt(e.target.value));
 View.els.groove.addEventListener('change', e => { Game.pattern = parseInt(e.target.value); Game.pIndex = 0; });
 
@@ -741,14 +763,24 @@ View.els.btnVolMinus.addEventListener('click', () => { let val = parseInt(View.e
 View.els.btnVolPlus.addEventListener('click', () => { let val = parseInt(View.els.inVol.value)+5; if(val>100)val=100; View.els.inVol.value=val; Game.vol=val/100; if(AudioSys.gain)AudioSys.gain.gain.value=Game.vol; });
 View.els.btnSensMinus.addEventListener('click', () => { let val = parseInt(View.els.inSens.value)-1; if(val<1)val=1; View.els.inSens.value=val; Game.thresh=val/500; });
 View.els.btnSensPlus.addEventListener('click', () => { let val = parseInt(View.els.inSens.value)+1; if(val>50)val=50; View.els.inSens.value=val; Game.thresh=val/500; });
-View.els.btnLatMinus.addEventListener('click', () => { let val = parseInt(View.els.inLat.value)-5; if(val<0)val=0; View.els.inLat.value=val; Game.latency=val/1000; });
-View.els.btnLatPlus.addEventListener('click', () => { let val = parseInt(View.els.inLat.value)+5; if(val>400)val=400; View.els.inLat.value=val; Game.latency=val/1000; });
+View.els.btnLatMinus.addEventListener('click', () => { 
+    let val = parseInt(View.els.inLat.value)-5; if(val<0)val=0; 
+    View.els.inLat.value=val; View.updateLatDisp(val); Game.latency=val/1000; 
+});
+View.els.btnLatPlus.addEventListener('click', () => { 
+    let val = parseInt(View.els.inLat.value)+5; if(val>400)val=400; 
+    View.els.inLat.value=val; View.updateLatDisp(val); Game.latency=val/1000; 
+});
 
 View.els.calibBtn.addEventListener('click', e => Game.startCalibration(e));
 View.els.skipLink.addEventListener('click', async e => { e.stopPropagation(); const ready = await AudioSys.init(); if(ready) { View.els.overlay.style.display = 'none'; Game.startGame(); }});
 View.els.start.addEventListener('click', async () => { const ready = await AudioSys.init(); if(ready) Game.startGame(); });
 View.els.stop.addEventListener('click', () => Game.stopGame());
-View.els.restartBtn.addEventListener('click', (e) => { e.stopPropagation(); View.els.overlay.style.display = 'none'; View.resetGameUI(); });
+View.els.restartBtn.addEventListener('click', (e) => { 
+    e.stopPropagation(); View.els.overlay.style.display = 'none'; 
+    if(View.els.restartBtn.innerText === "START GAME") Game.startGame();
+    else View.resetGameUI(); 
+});
 document.getElementById('btnReCalib').addEventListener('click', () => { Game.stopGame(); View.showOverlay('calib'); });
 document.getElementById('btnCloseOverlay').addEventListener('click', (e) => { e.stopPropagation(); View.els.overlay.style.display = 'none'; Game.calibrating = false; View.resetGameUI(); });
 View.els.overlay.addEventListener('click', e => {
