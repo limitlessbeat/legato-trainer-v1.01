@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v40 - Mobile Layout Fix</title>
+    <title>Legato Trainer v41 - iPhone Sens Fix</title>
     <style>
-        /* --- v40 STYLE (Mobile Optimized) --- */
+        /* --- v41 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -31,7 +31,6 @@
             padding: 0;
             display: flex;
             flex-direction: column;
-            /* Use dvh to handle mobile browser address bars correctly */
             height: 100dvh;
             overflow: hidden;
             user-select: none;
@@ -40,7 +39,6 @@
 
         /* HEADER */
         .header {
-            /* Add safe-area for notch */
             padding: calc(10px + env(safe-area-inset-top)) 15px 10px 15px;
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--c-border);
@@ -56,7 +54,6 @@
 
         /* METRONOME AREA */
         .metronome-area {
-            /* Flexible height for small screens */
             height: 25vh; 
             min-height: 160px; max-height: 220px;
             background: radial-gradient(circle at center bottom, #1a1a1a, #000);
@@ -101,7 +98,7 @@
         }
         .pendulum-rod {
             width: 4px; 
-            height: 88%; /* Relative height to fit container */
+            height: 88%;
             background: linear-gradient(90deg, #444, #888, #444);
             position: absolute; bottom: 0; left: 50%; margin-left: -2px;
             transform-origin: bottom center; 
@@ -159,9 +156,9 @@
         .input-led.on { background: #00d2ff; box-shadow: 0 0 10px #00d2ff; border-color: #fff; }
         .input-led.noise { background: #ff3b30; box-shadow: 0 0 10px #ff3b30; animation: pulse 0.2s infinite; }
 
-        /* HISTORY (Fills remaining space) */
+        /* HISTORY */
         .history-area {
-            flex: 1 1 auto; /* Takes remaining space */
+            flex: 1 1 auto;
             overflow-y: auto; min-height: 0;
             border-top: 1px solid var(--c-border); background: #050505; position: relative;
         }
@@ -180,11 +177,10 @@
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
 
-        /* CONTROLS (Bottom safe area fix) */
+        /* CONTROLS */
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
             display: flex; gap: 10px; 
-            /* Padding for bottom safe area (Home bar) + extra spacing */
             padding: 12px 12px calc(20px + env(safe-area-inset-bottom)) 12px;
             flex-shrink: 0;
         }
@@ -215,7 +211,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v40</h1>
+    <h1>LEGATO TRAINER v41</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -286,7 +282,7 @@
     <summary>SETTINGS ▼</summary>
     <div class="settings-wrap">
         <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="50"></div>
-        <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="20"></div>
+        <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
         <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="100"></div>
     </div>
 </details>
@@ -318,7 +314,8 @@ const engine = {
     currentPattern: 1, pIndex: 0, beatCount: 0,
     
     targetQueue: [], vol: 0.5, 
-    thresh: 0.04, 
+    // FIX: Initial thresh set to 0.012 (matching value 6)
+    thresh: 0.012, 
     latency: 0.100,
     noteOn: false, noteStart: 0, lastHitId: -1,
     cycleHits: [], stars: 0,
@@ -574,7 +571,6 @@ function addHistory(judge, legato, diff) {
         ui.hist.appendChild(row);
     }
     
-    // Force scroll to top
     ui.histArea.scrollTop = 0;
 
     if (ui.hist.children.length > 30) ui.hist.lastChild.remove();
