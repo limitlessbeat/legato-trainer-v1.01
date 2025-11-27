@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v41 - iPhone Sens Fix</title>
+    <title>Legato Trainer v42 - Groove Sync Fix</title>
     <style>
-        /* --- v41 STYLE --- */
+        /* --- v42 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -102,7 +102,7 @@
             background: linear-gradient(90deg, #444, #888, #444);
             position: absolute; bottom: 0; left: 50%; margin-left: -2px;
             transform-origin: bottom center; 
-            transform: rotate(40deg);
+            transform: rotate(40deg); /* Start Right */
             will-change: transform; z-index: 8;
         }
         .pendulum-weight {
@@ -211,7 +211,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v41</h1>
+    <h1>LEGATO TRAINER v42</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -314,14 +314,14 @@ const engine = {
     currentPattern: 1, pIndex: 0, beatCount: 0,
     
     targetQueue: [], vol: 0.5, 
-    // FIX: Initial thresh set to 0.012 (matching value 6)
-    thresh: 0.012, 
+    thresh: 0.012, // Matches Sens 6
     latency: 0.100,
     noteOn: false, noteStart: 0, lastHitId: -1,
     cycleHits: [], stars: 0,
     totalHits: 0,
+    totalNoteCount: 0,
     
-    lastBeatIndex: -1,
+    lastVisualNoteId: -1,
     noiseWarningCounter: 0
 };
 
@@ -388,7 +388,14 @@ function scheduleNote(time) {
     const pattern = engine.patterns[engine.currentPattern];
     const dur = (60 / engine.bpm) * pattern[engine.pIndex];
     
-    engine.targetQueue.push({ id: Date.now() + Math.random(), time: time, duration: dur, hit: false });
+    const noteIdx = engine.totalNoteCount++;
+    engine.targetQueue.push({ 
+        id: Date.now() + Math.random(), 
+        time: time, 
+        duration: dur, 
+        hit: false,
+        noteIndex: noteIdx 
+    });
 }
 
 function advanceNote() {
@@ -404,21 +411,43 @@ function advanceNote() {
 }
 
 function updateVisualizer(now) {
-    const beatDur = 60.0 / engine.bpm;
-    const timeElapsed = now - engine.startTime;
-    if (timeElapsed < 0) return;
-
-    const rad = (timeElapsed * Math.PI) / beatDur;
-    const angle = Math.cos(rad) * 40; 
+    // Find ACTIVE note to sync pendulum speed
+    // We search for the note that covers 'now'
+    const activeNote = engine.targetQueue.find(n => now >= n.time && now < (n.time + n.duration));
     
-    ui.pendulum.style.transform = `rotate(${angle}deg)`;
-    
-    const currentBeat = Math.floor((timeElapsed + 0.05) / beatDur);
-    
-    if (currentBeat > engine.lastBeatIndex) {
-        engine.lastBeatIndex = currentBeat;
-        if (currentBeat % 2 === 0) triggerImpact('R');
-        else triggerImpact('L');
+    if (activeNote) {
+        // Calculate progress within this specific note duration (0.0 to 1.0)
+        const pct = (now - activeNote.time) / activeNote.duration;
+        
+        // Determine Swing Direction based on note index
+        // Even Notes (0, 2...): Swing Right -> Left. (Angle 40 -> -40)
+        // Odd Notes (1, 3...): Swing Left -> Right. (Angle -40 -> 40)
+        
+        // Map pct (0->1) to Cosine (1 -> -1)
+        // Math.cos(0) = 1, Math.cos(PI) = -1
+        let rad = pct * Math.PI;
+        
+        // If Odd note, we want -1 -> 1. 
+        // Math.cos(PI + rad) => cos(PI)=-1, cos(2PI)=1.
+        if (activeNote.noteIndex % 2 !== 0) {
+            rad += Math.PI; 
+        }
+        
+        const angle = 40 * Math.cos(rad);
+        ui.pendulum.style.transform = `rotate(${angle}deg)`;
+        
+        // Trigger Flash at start of new note
+        if (activeNote.id !== engine.lastVisualNoteId) {
+            engine.lastVisualNoteId = activeNote.id;
+            // Note: activeNote.noteIndex is the index of the note starting NOW.
+            // Even index = Starts at Right. Flash Right.
+            // Odd index = Starts at Left. Flash Left.
+            if (activeNote.noteIndex % 2 === 0) triggerImpact('R');
+            else triggerImpact('L');
+        }
+    } else {
+        // Fallback if waiting (stopped or gap)
+        if(!engine.running) ui.pendulum.style.transform = `rotate(40deg)`;
     }
 }
 
@@ -618,6 +647,7 @@ function resetToReady() {
     engine.gameActive = false; 
     engine.beatCount = 0;
     engine.totalHits = 0;
+    engine.totalNoteCount = 0;
     
     ui.bar.style.width = "0%"; 
     ui.msg.innerText = "LISTEN... PLAY TO START"; 
@@ -660,6 +690,7 @@ ui.start.addEventListener('click', async () => {
     engine.bpm = parseInt(ui.bpm.value);
     engine.currentPattern = parseInt(ui.groove.value);
     engine.pIndex = 0; engine.beatCount = 0; 
+    engine.totalNoteCount = 0;
     
     engine.nextTime = engine.ctx.currentTime + 0.1;
     engine.startTime = engine.nextTime;
@@ -670,7 +701,7 @@ ui.start.addEventListener('click', async () => {
     engine.noteOn = false; 
     engine.noteStart = 0; 
     engine.lastHitId = -1; 
-    engine.lastBeatIndex = -1;
+    engine.lastVisualNoteId = -1;
     
     ui.start.style.display = 'none'; ui.stop.classList.add('active');
     scheduler(); detectionLoop();
