@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v52 - Latency Fix</title>
+    <title>Legato Trainer v52 - Early/Late Detail</title>
     <style>
-        /* --- v52 STYLE --- */
+        /* --- v52 STYLE (Detailed Timing) --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -191,7 +191,6 @@
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
             display: flex; gap: 8px; 
-            /* Extra padding for credit footer */
             padding: 8px 8px calc(28px + env(safe-area-inset-bottom)) 8px;
             flex-shrink: 0;
             position: relative;
@@ -207,7 +206,7 @@
         .btn-stop { background: var(--c-bad); color: white; opacity: 0.3; pointer-events: none; }
         .btn-stop.active { opacity: 1; pointer-events: auto; }
 
-        /* CREDIT FOOTER */
+        /* CREDIT */
         .credit {
             position: absolute;
             bottom: calc(4px + env(safe-area-inset-bottom));
@@ -310,7 +309,7 @@
     <div class="settings-wrap">
         <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="50"></div>
         <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
-        <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="240"></div>
+        <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="100"></div>
     </div>
 </details>
 
@@ -347,8 +346,7 @@ const engine = {
     
     targetQueue: [], vol: 0.5, 
     thresh: 0.012, 
-    // FIX: Engine Latency 0.240
-    latency: 0.240,
+    latency: 0.100,
     noteOn: false, noteStart: 0, lastHitId: -1,
     cycleHits: [], stars: 0,
     totalHits: 0,
@@ -566,6 +564,11 @@ function renderTiming(diff, forceJudge) {
     } else {
         if (abs <= 45) { judge = "PERFECT"; cls = "bg-p"; col = "c-p"; }
         else if (abs <= 100) { judge = "GOOD"; cls = "bg-g"; col = "c-g"; }
+        else { 
+            // v52 UPDATE: Explicit EARLY/LATE for bad hits
+            judge = (diff < 0) ? "EARLY" : "LATE";
+            cls = "bg-b"; col = "c-b";
+        }
     }
     
     ui.valTime.innerText = (diff>0?"+":"") + diff;
@@ -599,8 +602,12 @@ function addHistory(legJudge, legPct, timJudge, diff) {
     if(legJudge==="EXCELLENT") lCol = "c-p"; else if(legJudge==="OK") lCol = "c-g";
     
     if(!timJudge) timJudge = "MISS";
-    let tCol = "c-poor";
-    if(timJudge==="PERFECT") tCol = "c-p"; else if(timJudge==="GOOD") tCol = "c-g";
+    let tCol = "c-poor"; // Default poor color
+    
+    // Updated color logic for History
+    if(timJudge==="PERFECT") tCol = "c-p"; 
+    else if(timJudge==="GOOD") tCol = "c-g";
+    else if(timJudge==="EARLY" || timJudge==="LATE") tCol = "c-b"; // RED for Early/Late
     
     row.innerHTML = `
         <td class="col-idx">${engine.totalHits}</td>
