@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v50</title>
+    <title>Legato Trainer v51 - Double Credit</title>
     <style>
-        /* --- v50 STYLE (With Credit) --- */
+        /* --- v51 STYLE (Double Credit) --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -187,12 +187,12 @@
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
         input[type=range] { width: 120px; accent-color: var(--c-accent); }
 
-        /* CONTROLS & CREDIT */
+        /* CONTROLS */
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
             display: flex; gap: 8px; 
-            /* Added extra bottom padding for credit */
-            padding: 8px 8px calc(18px + env(safe-area-inset-bottom)) 8px;
+            /* Extra padding for 2-line footer */
+            padding: 8px 8px calc(28px + env(safe-area-inset-bottom)) 8px;
             flex-shrink: 0;
             position: relative;
         }
@@ -210,15 +210,16 @@
         /* CREDIT FOOTER */
         .credit {
             position: absolute;
-            bottom: calc(2px + env(safe-area-inset-bottom));
+            bottom: calc(4px + env(safe-area-inset-bottom));
             left: 0; width: 100%;
             text-align: center;
-            font-size: 0.55rem;
-            color: #333;
+            font-size: 0.5rem;
+            line-height: 1.3;
+            color: #444;
             pointer-events: none;
             z-index: 20;
             font-weight: bold;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
         }
 
@@ -238,7 +239,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v50</h1>
+    <h1>LEGATO TRAINER v51</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -321,7 +322,10 @@
     <button id="btnStart" class="btn btn-start">START</button>
     <button id="btnStop" class="btn btn-stop">STOP</button>
     
-    <div class="credit">Takeshi Ohbayashi presents</div>
+    <div class="credit">
+        Takeshi Ohbayashi presents<br>
+        <span style="font-weight:normal; opacity:0.7">created by DONGURI Music & Arts</span>
+    </div>
 </div>
 
 <div id="overlay" class="overlay">
