@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v62 - iOS Calibration Fix</title>
+    <title>Legato Trainer v63 - Anti-Freeze</title>
     <style>
-        /* --- v62 STYLE --- */
+        /* --- v63 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -234,25 +234,37 @@
             background: rgba(0,0,0,0.98); z-index: 9999; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             animation: fadeIn 0.3s;
-            cursor: pointer;
         }
         .overlay h2 { font-size: 2.0rem; color: var(--c-warn); margin-bottom: 15px; text-align: center; }
         .overlay p { color: #ccc; margin-bottom: 30px; font-size: 0.8rem; text-align: center; line-height: 1.5; max-width: 80%; }
         
+        /* Big Green Button */
         .btn-calib-start {
             padding: 20px 40px; border-radius: 40px; border: none;
             font-size: 1.2rem; font-weight: 800; cursor: pointer;
-            background: var(--c-good); color: #000;
+            background-color: #4cd964; color: #000; /* Hardcoded Green */
             box-shadow: 0 0 25px rgba(76, 217, 100, 0.6);
             margin-bottom: 20px;
+            -webkit-appearance: none; /* Force iOS style reset */
         }
-        .btn-calib-start:disabled { opacity: 0.5; cursor: wait; }
+        .btn-calib-start:active { transform: scale(0.95); }
+        .btn-calib-start:disabled { background-color: #555; color: #888; box-shadow: none; }
+
+        /* Close Button (The Exit Strategy) */
+        .btn-close {
+            position: absolute; top: 20px; right: 20px;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: #333; border: 1px solid #555;
+            color: #fff; font-size: 1.5rem; line-height: 40px; text-align: center;
+            cursor: pointer; z-index: 10000;
+        }
 
         .btn-restart { 
             padding: 15px 40px; border-radius: 30px; border: none; 
             font-size: 1.2rem; font-weight: bold; cursor: pointer; 
             background: var(--c-accent); color: #fff; 
             box-shadow: 0 0 20px rgba(0, 123, 255, 0.5);
+            margin-top: 10px;
         }
         
         .calib-progress { font-size: 3rem; font-weight: 800; color: #fff; margin-top: 20px; min-height: 40px; }
@@ -262,7 +274,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v62</h1>
+    <h1>LEGATO TRAINER v63</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -353,10 +365,13 @@
 </div>
 
 <div id="overlay" class="overlay" style="display:flex">
+    <div id="btnCloseOverlay" class="btn-close">×</div>
+
     <h2 id="ovTitle">SETUP</h2>
     <p id="ovDesc">Set volume MAX & unmute.<br>Tap button to calibrate.</p>
     
     <button id="btnCalibStart" class="btn-calib-start">TAP TO START</button>
+    
     <div id="calibCount" class="calib-progress"></div>
     
     <button id="btnRestart" class="btn-restart" style="display:none">CONTINUE</button>
@@ -397,6 +412,7 @@ const ui = {
     btnCalibStart: document.getElementById('btnCalibStart'),
     btnReCalib: document.getElementById('btnReCalib'),
     skipLink: document.getElementById('skipLink'),
+    btnCloseOverlay: document.getElementById('btnCloseOverlay'),
     
     bpm: document.getElementById('inBpm'),
     groove: document.getElementById('grooveSelect'),
@@ -426,10 +442,7 @@ async function initAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!engine.ctx) engine.ctx = new AC();
     
-    // Force resume logic for iOS
-    if (engine.ctx.state === 'suspended') {
-        await engine.ctx.resume();
-    }
+    if (engine.ctx.state === 'suspended') await engine.ctx.resume();
 
     if (!engine.gain) {
         engine.gain = engine.ctx.createGain();
@@ -446,7 +459,6 @@ async function initAudio() {
             engine.analyser.fftSize = 1024;
             engine.mic.connect(engine.analyser);
         } catch(e) { 
-            console.error(e);
             alert("Microphone Access Denied. Check Settings."); 
             return false; 
         }
@@ -456,31 +468,30 @@ async function initAudio() {
 
 // --- 2. CALIBRATION SEQUENCE ---
 async function runCalibrationSequence(e) {
-    // Prevent propagation (CRITICAL FIX for overlay disappearing)
     if(e) e.stopPropagation();
     
-    ui.btnCalibStart.innerText = "Allow Mic...";
-    ui.btnCalibStart.disabled = true;
+    // Visual feedback immediately
+    ui.btnCalibStart.innerText = "Starting...";
     
+    // Init Audio
     const ready = await initAudio();
-    
     if(!ready) {
-        ui.btnCalibStart.innerText = "Mic Error (Retry)";
-        ui.btnCalibStart.disabled = false;
+        ui.btnCalibStart.innerText = "Mic Error";
         return;
     }
 
-    // Setup Calibration State
+    // Start Calibration Mode
     engine.isCalibrating = true;
     engine.running = false; 
     engine.calibHits = [];
     engine.calibNoisePeak = 0;
     
+    // Only hide button when we actually start clicks
     ui.btnCalibStart.style.display = 'none';
     ui.skipLink.style.display = 'none';
     ui.btnRestart.style.display = 'none';
     ui.ovTitle.innerText = "CALIBRATING";
-    ui.ovDesc.innerText = "Keep quiet... Listening...";
+    ui.ovDesc.innerText = "Listen for clicks...";
     ui.calibCount.innerText = "READY";
 
     setTimeout(() => {
@@ -497,7 +508,7 @@ async function runCalibrationSequence(e) {
         }, 800);
         
         requestAnimationFrame(calibAnalysisLoop);
-    }, 1000);
+    }, 500);
 }
 
 function playTestClick() {
@@ -518,15 +529,11 @@ function calibAnalysisLoop() {
     
     const data = new Uint8Array(engine.analyser.frequencyBinCount);
     engine.analyser.getByteTimeDomainData(data);
-    
     let sum = 0;
-    for(let i=0; i<data.length; i++) { 
-        const x = (data[i]-128)/128.0; 
-        sum += x*x; 
-    }
+    for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
     const rms = Math.sqrt(sum / data.length);
     
-    // Detect Latency (Loud click)
+    // Latency Detect
     if (rms > 0.05) {
         const now = engine.ctx.currentTime;
         const hit = engine.calibHits[engine.calibHits.length-1];
@@ -534,19 +541,17 @@ function calibAnalysisLoop() {
             hit.recv = now;
         }
     }
-    
-    // Detect Background Noise
+    // Noise Floor
     if (rms > engine.calibNoisePeak) {
         engine.calibNoisePeak = rms;
     }
-    
     requestAnimationFrame(calibAnalysisLoop);
 }
 
 function finalizeCalibration() {
     engine.isCalibrating = false;
     
-    // Calc Latency
+    // Latency
     let totalLat = 0;
     let validCount = 0;
     engine.calibHits.forEach(h => {
@@ -563,19 +568,16 @@ function finalizeCalibration() {
         if(newLat > 0.5) newLat = 0.5;
     }
     
-    // Calc Sensitivity (Noise + Margin)
+    // Sensitivity
     let newThresh = engine.calibNoisePeak * 1.5;
     if (newThresh < 0.01) newThresh = 0.01;
     if (newThresh > 0.5) newThresh = 0.5;
     
-    // Apply
     engine.latency = newLat;
     ui.inLat.value = Math.round(newLat * 1000);
-    
     engine.thresh = newThresh;
     let sensVal = Math.round(newThresh * 500);
-    if(sensVal > 50) sensVal = 50;
-    if(sensVal < 1) sensVal = 1;
+    if(sensVal > 50) sensVal = 50; if(sensVal < 1) sensVal = 1;
     ui.inSens.value = sensVal;
     
     closeOverlayAndStart();
@@ -583,8 +585,7 @@ function finalizeCalibration() {
 
 function closeOverlayAndStart() {
     ui.overlay.style.display = 'none';
-    
-    // Reset Overlay for Game End
+    // Reset Overlay to "Clear" state
     ui.ovTitle.innerText = "CLEAR!";
     ui.ovDesc.innerText = "Excellent Rhythm & Control";
     ui.btnCalibStart.style.display = 'none';
@@ -594,6 +595,14 @@ function closeOverlayAndStart() {
     
     startGame();
 }
+
+// --- EMERGENCY CLOSE (New Feature) ---
+ui.btnCloseOverlay.addEventListener('click', (e) => {
+    e.stopPropagation();
+    ui.overlay.style.display = 'none';
+    engine.isCalibrating = false;
+    resetToReady();
+});
 
 // --- GAME CONTROL ---
 function startGame() {
@@ -632,7 +641,6 @@ ui.btnReCalib.addEventListener('click', () => {
         clearTimeout(engine.timerID);
         ui.start.style.display = 'block'; ui.stop.classList.remove('active');
     }
-    
     ui.overlay.style.display = 'flex';
     ui.ovTitle.innerText = "SETUP";
     ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>Tap to calibrate.";
@@ -657,23 +665,9 @@ ui.stop.addEventListener('click', () => {
     ui.msg.classList.remove('blink');
 });
 
-ui.restart.addEventListener('click', (e) => {
-    if(e) e.stopPropagation();
+ui.restart.addEventListener('click', () => {
     ui.overlay.style.display = 'none';
     resetToReady();
-});
-
-// Overlay click logic (Close if CLEAR screen, Ignore if Calib)
-ui.overlay.addEventListener('click', (e) => {
-    if(engine.isCalibrating) return;
-    // If it's the CLEAR screen (restart btn visible)
-    if(ui.btnRestart.style.display === 'block') {
-        // Don't close if clicking the button itself (redundant but safe)
-        if(e.target !== ui.btnRestart) {
-            ui.overlay.style.display = 'none';
-            resetToReady();
-        }
-    }
 });
 
 ui.groove.addEventListener('change', () => {
@@ -682,10 +676,8 @@ ui.groove.addEventListener('change', () => {
 });
 
 ui.inVol.addEventListener('input', e => { 
-    let v = e.target.value / 100; 
-    if(v <= 0) v = 0.0001; 
-    engine.vol = v; 
-    if(engine.gain) engine.gain.gain.value = engine.vol; 
+    let v = e.target.value / 100; if(v <= 0) v = 0.0001; 
+    engine.vol = v; if(engine.gain) engine.gain.gain.value = engine.vol; 
 });
 ui.inSens.addEventListener('input', e => engine.thresh = e.target.value / 500);
 ui.inLat.addEventListener('input', e => engine.latency = e.target.value / 1000);
