@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v51 - Double Credit</title>
+    <title>Legato Trainer v52 - Latency Fix</title>
     <style>
-        /* --- v51 STYLE (Double Credit) --- */
+        /* --- v52 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -191,7 +191,7 @@
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
             display: flex; gap: 8px; 
-            /* Extra padding for 2-line footer */
+            /* Extra padding for credit footer */
             padding: 8px 8px calc(28px + env(safe-area-inset-bottom)) 8px;
             flex-shrink: 0;
             position: relative;
@@ -239,7 +239,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v51</h1>
+    <h1>LEGATO TRAINER v52</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -310,7 +310,7 @@
     <div class="settings-wrap">
         <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="50"></div>
         <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
-        <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="100"></div>
+        <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="240"></div>
     </div>
 </details>
 
@@ -347,7 +347,8 @@ const engine = {
     
     targetQueue: [], vol: 0.5, 
     thresh: 0.012, 
-    latency: 0.100,
+    // FIX: Engine Latency 0.240
+    latency: 0.240,
     noteOn: false, noteStart: 0, lastHitId: -1,
     cycleHits: [], stars: 0,
     totalHits: 0,
