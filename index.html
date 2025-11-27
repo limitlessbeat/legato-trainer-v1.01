@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v63 - Anti-Freeze</title>
+    <title>Legato Trainer v64 - Latency Only</title>
     <style>
-        /* --- v63 STYLE --- */
+        /* --- v64 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -234,23 +234,23 @@
             background: rgba(0,0,0,0.98); z-index: 9999; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             animation: fadeIn 0.3s;
+            cursor: default;
         }
         .overlay h2 { font-size: 2.0rem; color: var(--c-warn); margin-bottom: 15px; text-align: center; }
         .overlay p { color: #ccc; margin-bottom: 30px; font-size: 0.8rem; text-align: center; line-height: 1.5; max-width: 80%; }
         
-        /* Big Green Button */
         .btn-calib-start {
             padding: 20px 40px; border-radius: 40px; border: none;
             font-size: 1.2rem; font-weight: 800; cursor: pointer;
-            background-color: #4cd964; color: #000; /* Hardcoded Green */
+            background-color: #4cd964; color: #000;
             box-shadow: 0 0 25px rgba(76, 217, 100, 0.6);
             margin-bottom: 20px;
-            -webkit-appearance: none; /* Force iOS style reset */
+            -webkit-appearance: none;
         }
         .btn-calib-start:active { transform: scale(0.95); }
         .btn-calib-start:disabled { background-color: #555; color: #888; box-shadow: none; }
 
-        /* Close Button (The Exit Strategy) */
+        /* Close Button */
         .btn-close {
             position: absolute; top: 20px; right: 20px;
             width: 40px; height: 40px; border-radius: 50%;
@@ -274,7 +274,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v63</h1>
+    <h1>LEGATO TRAINER v64</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -368,7 +368,7 @@
     <div id="btnCloseOverlay" class="btn-close">×</div>
 
     <h2 id="ovTitle">SETUP</h2>
-    <p id="ovDesc">Set volume MAX & unmute.<br>Tap button to calibrate.</p>
+    <p id="ovDesc">Set volume MAX & unmute.<br>Measuring Latency...</p>
     
     <button id="btnCalibStart" class="btn-calib-start">TAP TO START</button>
     
@@ -400,8 +400,7 @@ const engine = {
     noiseWarningCounter: 0,
     
     isCalibrating: false,
-    calibHits: [],
-    calibNoisePeak: 0
+    calibHits: []
 };
 
 const ui = {
@@ -437,7 +436,7 @@ const ui = {
     calibCount: document.getElementById('calibCount')
 };
 
-// --- 1. SYSTEM INIT (Context Resume) ---
+// --- 1. SYSTEM INIT ---
 async function initAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!engine.ctx) engine.ctx = new AC();
@@ -459,39 +458,37 @@ async function initAudio() {
             engine.analyser.fftSize = 1024;
             engine.mic.connect(engine.analyser);
         } catch(e) { 
-            alert("Microphone Access Denied. Check Settings."); 
+            console.error(e);
+            alert("Mic Access Denied."); 
             return false; 
         }
     }
     return true;
 }
 
-// --- 2. CALIBRATION SEQUENCE ---
+// --- 2. CALIBRATION SEQUENCE (LATENCY ONLY) ---
 async function runCalibrationSequence(e) {
     if(e) e.stopPropagation();
+    ui.btnCalibStart.innerText = "Allow Mic...";
+    ui.btnCalibStart.disabled = true;
     
-    // Visual feedback immediately
-    ui.btnCalibStart.innerText = "Starting...";
-    
-    // Init Audio
     const ready = await initAudio();
+    
     if(!ready) {
         ui.btnCalibStart.innerText = "Mic Error";
+        ui.btnCalibStart.disabled = false;
         return;
     }
 
-    // Start Calibration Mode
     engine.isCalibrating = true;
     engine.running = false; 
     engine.calibHits = [];
-    engine.calibNoisePeak = 0;
     
-    // Only hide button when we actually start clicks
     ui.btnCalibStart.style.display = 'none';
     ui.skipLink.style.display = 'none';
     ui.btnRestart.style.display = 'none';
     ui.ovTitle.innerText = "CALIBRATING";
-    ui.ovDesc.innerText = "Listen for clicks...";
+    ui.ovDesc.innerText = "Latency Check...";
     ui.calibCount.innerText = "READY";
 
     setTimeout(() => {
@@ -520,7 +517,6 @@ function playTestClick() {
     osc.connect(g); g.connect(engine.gain);
     const now = engine.ctx.currentTime;
     osc.start(now); osc.stop(now + 0.05); 
-    
     engine.calibHits.push({ send: now, recv: null });
 }
 
@@ -533,7 +529,7 @@ function calibAnalysisLoop() {
     for(let i=0; i<data.length; i++) { const x = (data[i]-128)/128.0; sum += x*x; }
     const rms = Math.sqrt(sum / data.length);
     
-    // Latency Detect
+    // Only check for loud clicks for latency
     if (rms > 0.05) {
         const now = engine.ctx.currentTime;
         const hit = engine.calibHits[engine.calibHits.length-1];
@@ -541,17 +537,13 @@ function calibAnalysisLoop() {
             hit.recv = now;
         }
     }
-    // Noise Floor
-    if (rms > engine.calibNoisePeak) {
-        engine.calibNoisePeak = rms;
-    }
     requestAnimationFrame(calibAnalysisLoop);
 }
 
 function finalizeCalibration() {
     engine.isCalibrating = false;
     
-    // Latency
+    // Calc Latency
     let totalLat = 0;
     let validCount = 0;
     engine.calibHits.forEach(h => {
@@ -561,31 +553,22 @@ function finalizeCalibration() {
         }
     });
     
-    let newLat = 0.240; 
+    let newLat = 0.240; // Default
     if (validCount > 0) {
         newLat = totalLat / validCount;
         if(newLat < 0.01) newLat = 0.01;
         if(newLat > 0.5) newLat = 0.5;
     }
     
-    // Sensitivity
-    let newThresh = engine.calibNoisePeak * 1.5;
-    if (newThresh < 0.01) newThresh = 0.01;
-    if (newThresh > 0.5) newThresh = 0.5;
-    
+    // Apply
     engine.latency = newLat;
     ui.inLat.value = Math.round(newLat * 1000);
-    engine.thresh = newThresh;
-    let sensVal = Math.round(newThresh * 500);
-    if(sensVal > 50) sensVal = 50; if(sensVal < 1) sensVal = 1;
-    ui.inSens.value = sensVal;
     
     closeOverlayAndStart();
 }
 
 function closeOverlayAndStart() {
     ui.overlay.style.display = 'none';
-    // Reset Overlay to "Clear" state
     ui.ovTitle.innerText = "CLEAR!";
     ui.ovDesc.innerText = "Excellent Rhythm & Control";
     ui.btnCalibStart.style.display = 'none';
@@ -596,7 +579,6 @@ function closeOverlayAndStart() {
     startGame();
 }
 
-// --- EMERGENCY CLOSE (New Feature) ---
 ui.btnCloseOverlay.addEventListener('click', (e) => {
     e.stopPropagation();
     ui.overlay.style.display = 'none';
@@ -626,7 +608,7 @@ function startGame() {
     scheduler(); detectionLoop();
 }
 
-// --- EVENT LISTENERS ---
+// --- LISTENERS ---
 ui.btnCalibStart.addEventListener('click', runCalibrationSequence);
 
 ui.skipLink.addEventListener('click', async (e) => {
@@ -643,7 +625,7 @@ ui.btnReCalib.addEventListener('click', () => {
     }
     ui.overlay.style.display = 'flex';
     ui.ovTitle.innerText = "SETUP";
-    ui.ovDesc.innerHTML = "Set volume MAX & unmute.<br>Tap to calibrate.";
+    ui.ovDesc.innerText = "Set volume MAX & unmute.";
     ui.btnCalibStart.innerText = "TAP TO START";
     ui.btnCalibStart.disabled = false;
     ui.btnCalibStart.style.display = 'block';
@@ -665,9 +647,18 @@ ui.stop.addEventListener('click', () => {
     ui.msg.classList.remove('blink');
 });
 
-ui.restart.addEventListener('click', () => {
+ui.restart.addEventListener('click', (e) => {
+    if(e) e.stopPropagation();
     ui.overlay.style.display = 'none';
     resetToReady();
+});
+
+ui.overlay.addEventListener('click', (e) => {
+    if(engine.isCalibrating) return;
+    if(ui.btnRestart.style.display === 'block' && e.target !== ui.btnRestart) {
+        ui.overlay.style.display = 'none';
+        resetToReady();
+    }
 });
 
 ui.groove.addEventListener('change', () => {
