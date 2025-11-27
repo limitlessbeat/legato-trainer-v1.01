@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Legato Trainer v65 - Clean Architecture</title>
+    <title>Legato Trainer v66 - Latency Algorithm Fix</title>
     <style>
-        /* --- CONFIG & VARIABLES --- */
+        /* --- v66 STYLE --- */
         :root {
             --c-bg: #000000;
             --c-panel: #111111;
@@ -35,7 +35,7 @@
             user-select: none; -webkit-user-select: none;
         }
 
-        /* --- LAYOUT COMPONENTS --- */
+        /* LAYOUT */
         .header {
             padding: calc(5px + var(--safe-top)) 10px 5px 10px;
             display: flex; justify-content: space-between; align-items: center;
@@ -48,7 +48,7 @@
             padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; outline: none; font-weight: bold;
         }
 
-        /* VISUALIZER AREA */
+        /* VISUALIZER */
         .metronome-area {
             flex-shrink: 0; height: 70px;
             background: radial-gradient(circle at center bottom, #1a1a1a, #000);
@@ -93,7 +93,7 @@
             box-shadow: 0 0 5px rgba(0, 123, 255, 0.4); z-index: 9;
         }
 
-        /* STATUS & INFO */
+        /* STATUS */
         .status-bar {
             padding: 4px; background: #080808;
             display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -109,7 +109,7 @@
         .blink { animation: pulse 1.5s infinite; color: #00d2ff; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* METRICS CARDS */
+        /* METRICS */
         .metrics-area {
             display: grid; grid-template-columns: 1fr 1.3fr; gap: 4px; padding: 4px; flex-shrink: 0;
         }
@@ -124,7 +124,7 @@
         #cardLegato .card-val { font-size: 2.2rem; font-weight: 800; line-height: 1; margin-top: 6px; color: #fff; }
         #cardLegato .card-sub { font-size: 0.8rem; font-weight: bold; margin-top: 2px; }
 
-        /* WAVE INPUT */
+        /* WAVE */
         .wave-area { padding: 0 4px 4px 4px; height: 20px; flex-shrink: 0; position: relative; }
         .canvas-wrapper {
             width: 100%; height: 100%; background: #000; border: 1px solid var(--c-border);
@@ -138,7 +138,7 @@
         .input-led.on { background: #00d2ff; box-shadow: 0 0 6px #00d2ff; border-color: #fff; }
         .input-led.noise { background: #ff3b30; box-shadow: 0 0 6px #ff3b30; animation: pulse 0.2s infinite; }
 
-        /* HISTORY LIST */
+        /* HISTORY */
         .history-area {
             flex: 1; overflow-y: scroll; -webkit-overflow-scrolling: touch;
             border-top: 1px solid var(--c-border); background: #050505; position: relative; margin: 0;
@@ -159,10 +159,15 @@
         /* SETTINGS & CONTROLS */
         details { flex-shrink: 0; padding: 2px 10px; background: #080808; border-top: 1px solid #222; }
         summary { color: #555; font-size: 0.6rem; text-align: center; padding: 4px; cursor: pointer; list-style: none; }
-        .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 4px; }
+        .settings-wrap { padding-bottom: 4px; display: flex; flex-direction: column; gap: 8px; }
+        
+        /* Modified Setting Item for Buttons */
         .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #ccc; }
-        input[type=range] { width: 120px; accent-color: var(--c-accent); }
+        .setting-row { display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-end; }
+        input[type=range] { width: 100px; accent-color: var(--c-accent); }
+        
         .btn-mini { padding: 4px 10px; border-radius: 15px; border: 1px solid #555; background: #333; color: #fff; font-size: 0.6rem; font-weight: bold; cursor: pointer; }
+        .btn-adj { padding: 2px 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: #fff; font-size: 0.7rem; cursor: pointer; }
 
         .controls-area {
             background: #000; border-top: 1px solid var(--c-border);
@@ -233,7 +238,7 @@
 <body>
 
 <div class="header">
-    <h1>LEGATO TRAINER v65</h1>
+    <h1>LEGATO TRAINER v66</h1>
     <select id="grooveSelect" class="mode-select">
         <option value="1">Groove 1 (1/4)</option>
         <option value="2">Groove 2 (1/8)</option>
@@ -297,7 +302,15 @@
         <div class="setting-item"><span>Auto Calib</span> <button id="btnReCalib" class="btn-mini">RUN</button></div>
         <div class="setting-item"><span>Vol</span> <input type="range" id="inVol" min="0" max="100" value="50"></div>
         <div class="setting-item"><span>Sens</span> <input type="range" id="inSens" min="1" max="50" value="6"></div>
-        <div class="setting-item"><span>Latency</span> <input type="range" id="inLat" min="0" max="300" value="240"></div>
+        
+        <div class="setting-item">
+            <span>Latency</span>
+            <div class="setting-row">
+                <button id="btnLatMinus" class="btn-adj">-</button>
+                <input type="range" id="inLat" min="0" max="400" value="240">
+                <button id="btnLatPlus" class="btn-adj">+</button>
+            </div>
+        </div>
     </div>
 </details>
 
@@ -330,10 +343,10 @@
  */
 const CONFIG = {
     PATTERNS: { 1: [1.0], 2: [0.5, 0.5], 3: [0.666, 0.333], 4: [0.75, 0.25] },
-    THRESH_DEFAULT: 0.012, // Matches Sens 6
-    LATENCY_DEFAULT: 0.240, // 240ms for iOS mic
+    THRESH_DEFAULT: 0.012, 
+    LATENCY_DEFAULT: 0.240,
     CALIB_CLICKS: 4,
-    NOISE_LIMIT: 180 // Frames (~3 sec)
+    NOISE_LIMIT: 180
 };
 
 /**
@@ -347,13 +360,11 @@ const AudioSys = {
         if (!this.ctx) this.ctx = new AC();
         if (this.ctx.state === 'suspended') await this.ctx.resume();
         
-        // Output
         if (!this.gain) {
             this.gain = this.ctx.createGain();
             this.gain.connect(this.ctx.destination);
         }
         
-        // Input
         if (!this.mic) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -399,7 +410,6 @@ const AudioSys = {
 };
 
 const View = {
-    // Elements
     els: {
         pendulum: document.getElementById('pendulumRod'),
         flashL: document.getElementById('flashL'),
@@ -413,7 +423,6 @@ const View = {
         valTime: document.getElementById('valTime'),
         subTime: document.getElementById('subTime'),
         cardTime: document.getElementById('cardTime'),
-        
         valLeg: document.getElementById('valLegato'),
         subLeg: document.getElementById('subLegato'),
         cardLeg: document.getElementById('cardLegato'),
@@ -428,16 +437,19 @@ const View = {
         restartBtn: document.getElementById('btnRestart'),
         skipLink: document.getElementById('skipLink'),
         calibCount: document.getElementById('calibCount'),
+        closeOverlay: document.getElementById('btnCloseOverlay'),
         
         start: document.getElementById('btnStart'),
         stop: document.getElementById('btnStop'),
         
-        // Settings
         inVol: document.getElementById('inVol'),
         inSens: document.getElementById('inSens'),
         inLat: document.getElementById('inLat'),
         inBpm: document.getElementById('inBpm'),
         groove: document.getElementById('grooveSelect'),
+        
+        btnLatMinus: document.getElementById('btnLatMinus'),
+        btnLatPlus: document.getElementById('btnLatPlus')
     },
     
     visualScale: 600,
@@ -483,17 +495,12 @@ const View = {
         const ctx = this.els.ctx;
         
         ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
-        
-        // Thresh line
         const thY = h - (thresh * this.visualScale);
         const safeThY = Math.max(0, thY);
-        
         ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
         ctx.strokeStyle = '#007bff'; ctx.lineWidth = 2; ctx.setLineDash([4,2]); 
         ctx.beginPath(); ctx.moveTo(0, safeThY); ctx.lineTo(w, safeThY); ctx.stroke();
         ctx.setLineDash([]); ctx.lineWidth = 1;
-        
-        // Bar
         const barH = Math.min(rms * this.visualScale, h);
         ctx.fillStyle = noteOn ? '#4cd964' : '#333';
         ctx.fillRect(w/2 - 20, h - barH, 40, barH);
@@ -518,17 +525,14 @@ const View = {
         cardSub.innerText = judge;
         cardSub.className = "card-sub " + col;
         cardBg.className = "card " + cls;
-        
         setTimeout(() => cardBg.className = "card", 150);
     },
     
     addHistory(idx, legJudge, legPct, timJudge, diff) {
         const row = document.createElement('tr');
         row.className = "hist-new";
-        
         let lCol = "c-b";
         if(legJudge==="EXCELLENT") lCol = "c-p"; else if(legJudge==="OK") lCol = "c-g";
-        
         let tCol = "c-poor";
         if(timJudge==="PERFECT") tCol = "c-p"; else if(timJudge==="GOOD") tCol = "c-g";
         else if(!timJudge) timJudge = "MISS";
@@ -540,13 +544,8 @@ const View = {
             <td class="col-leg ${lCol}">${legJudge}</td>
             <td class="col-scr">${legPct}%</td>
         `;
-        
-        if (this.els.hist.firstChild) {
-            this.els.hist.insertBefore(row, this.els.hist.firstChild);
-        } else {
-            this.els.hist.appendChild(row);
-        }
-        
+        if (this.els.hist.firstChild) this.els.hist.insertBefore(row, this.els.hist.firstChild);
+        else this.els.hist.appendChild(row);
         this.els.histArea.scrollTop = 0;
         if (this.els.hist.children.length > 50) this.els.hist.lastChild.remove();
     },
@@ -586,7 +585,6 @@ const View = {
 };
 
 const Game = {
-    // State
     running: false,
     calibrating: false,
     noteOn: false,
@@ -595,14 +593,12 @@ const Game = {
     lastBeatIdx: -1,
     noiseCounter: 0,
     
-    // Parameters
     vol: 0.5,
     thresh: CONFIG.THRESH_DEFAULT,
     latency: CONFIG.LATENCY_DEFAULT,
     bpm: 90,
     pattern: 1,
     
-    // Game Data
     targetQueue: [],
     cycleHits: [],
     stars: 0,
@@ -612,22 +608,17 @@ const Game = {
     beatCount: 0,
     pIndex: 0,
     
-    // Calibration Data
     calibHits: [],
 
-    // Methods
     async startCalibration(e) {
         if(e) e.stopPropagation();
-        
-        // 1. Force Audio Init
-        View.els.calibBtn.innerText = "Allow Mic...";
+        View.els.calibBtn.innerText = "Starting...";
         const ready = await AudioSys.init();
         if(!ready) {
             View.els.calibBtn.innerText = "Mic Error";
             return;
         }
 
-        // 2. Setup
         this.calibrating = true;
         this.running = false;
         this.calibHits = [];
@@ -637,7 +628,6 @@ const Game = {
         View.els.ovDesc.innerText = "Latency check...";
         View.els.calibCount.innerText = "READY";
 
-        // 3. Loop
         let count = 0;
         const interval = setInterval(() => {
             count++;
@@ -650,14 +640,12 @@ const Game = {
                 setTimeout(() => this.finishCalibration(), 800);
             }
         }, 800);
-        
         requestAnimationFrame(() => this.calibLoop());
     },
     
     calibLoop() {
         if(!this.calibrating) return;
         const rms = AudioSys.getRMS();
-        // Detect loud click
         if (rms > 0.05) {
             const now = AudioSys.ctx.currentTime;
             const hit = this.calibHits[this.calibHits.length-1];
@@ -671,17 +659,26 @@ const Game = {
     finishCalibration() {
         this.calibrating = false;
         let totalLat = 0, count = 0;
+        let minLat = Infinity; // Use MIN instead of AVG
         
         this.calibHits.forEach(h => {
-            if(h.recv) { totalLat += (h.recv - h.send); count++; }
+            if(h.recv) { 
+                const lat = h.recv - h.send;
+                if (lat < minLat) minLat = lat;
+                count++; 
+            }
         });
         
         if (count > 0) {
-            let avg = totalLat / count;
-            if(avg < 0.01) avg = 0.01; 
-            if(avg > 0.5) avg = 0.5;
-            this.latency = avg;
-            View.els.inLat.value = Math.round(avg * 1000);
+            // FIX: Use Minimum Latency detected (fastest path)
+            let result = minLat;
+            // Safety reduction (90%) to avoid over-compensation
+            result = result * 0.9;
+            
+            if(result < 0.01) result = 0.01; 
+            if(result > 0.5) result = 0.5;
+            this.latency = result;
+            View.els.inLat.value = Math.round(result * 1000);
         }
         
         View.els.overlay.style.display = 'none';
@@ -699,7 +696,6 @@ const Game = {
         this.cycleHits = [];
         this.noteOn = false;
         
-        // Start Audio Clock
         this.nextTime = AudioSys.ctx.currentTime + 0.1;
         this.startTime = this.nextTime;
         this.lastBeatIdx = -1;
@@ -721,7 +717,6 @@ const Game = {
     scheduler() {
         while (this.nextTime < AudioSys.ctx.currentTime + 0.1) {
             this.scheduleNote(this.nextTime);
-            // Advance
             const pat = CONFIG.PATTERNS[this.pattern];
             const secs = 60.0 / this.bpm;
             this.nextTime += secs * pat[this.pIndex];
@@ -736,7 +731,6 @@ const Game = {
     },
     
     scheduleNote(time) {
-        // Audio
         const osc = AudioSys.ctx.createOscillator();
         const g = AudioSys.ctx.createGain();
         const isDown = (this.beatCount % 4 === 0) && (this.pIndex === 0);
@@ -745,7 +739,6 @@ const Game = {
         osc.connect(g); g.connect(AudioSys.gain);
         osc.start(time); osc.stop(time + 0.04);
         
-        // Queue
         const pat = CONFIG.PATTERNS[this.pattern];
         const dur = (60 / this.bpm) * pat[this.pIndex];
         this.targetQueue = this.targetQueue.filter(t => t.time > AudioSys.ctx.currentTime - 1.0);
@@ -759,13 +752,11 @@ const Game = {
         const now = AudioSys.ctx.currentTime;
         const rms = AudioSys.getRMS();
         
-        // Visuals
         const beatDur = 60.0 / this.bpm;
         const elapsed = now - this.startTime;
         if(elapsed >= 0) {
             const rad = (elapsed * Math.PI) / beatDur;
             View.updatePendulum(Math.cos(rad) * 40);
-            
             const curBeat = Math.floor((elapsed + 0.05) / beatDur);
             if(curBeat > this.lastBeatIdx) {
                 this.lastBeatIdx = curBeat;
@@ -773,7 +764,6 @@ const Game = {
             }
         }
         
-        // Input Logic
         if(rms > this.thresh) {
             View.updateInputLed(true, false);
             this.noiseCounter++;
@@ -784,12 +774,10 @@ const Game = {
         
         if(this.noiseCounter > CONFIG.NOISE_LIMIT) View.updateInputLed(true, true);
 
-        // Note On/Off
         if(!this.noteOn && rms > this.thresh) {
             if(now - this.noteStart > 0.05) {
                 this.noteOn = true;
                 this.noteStart = now;
-                // First hit starts visual feedback
                 if(!this.gameActive) {
                     this.gameActive = true;
                     View.els.msg.innerText = "COLLECT 4 STARS";
@@ -831,7 +819,7 @@ const Game = {
             else if(Math.abs(diffMs) <= 100) judge = "GOOD";
             
             View.renderResult('time', (diffMs>0?"+":"")+diffMs, judge);
-            best.lastJudge = judge; // Store for history
+            best.lastJudge = judge; 
         } else if (best && min < 0.35) {
              View.renderResult('time', Math.round((corrected - best.time) * 1000), "POOR");
         }
@@ -846,16 +834,13 @@ const Game = {
             if(dur < 0.03) return;
             
             t.processed = true;
-            
             let judge = "SHORT";
             if(pct >= 85) judge = "EXCELLENT";
             else if(pct >= 60) judge = "OK";
             
             View.renderResult('legato', pct+"%", judge);
-            
             this.cycleHits.push({ t: t.lastDiff, l: pct });
             this.totalHits++;
-            
             const diffMs = t.lastJudge ? Math.round((t.actualStart - this.latency - t.time) * 1000) : "--";
             View.addHistory(this.totalHits, judge, pct, t.lastJudge || "MISS", diffMs);
         }
@@ -865,7 +850,6 @@ const Game = {
         const cycle = this.beatCount % 16;
         const pct = (cycle / 16) * 100;
         View.els.bar.style.width = pct + "%";
-        
         if(cycle === 0 && this.beatCount > 0) {
             const hits = this.cycleHits.length;
             if(hits < 4) {
@@ -903,10 +887,8 @@ const Game = {
 
 // --- BINDINGS ---
 
-// Init View
 View.init();
 
-// Slider bindings
 View.els.inVol.addEventListener('input', e => { 
     Game.vol = e.target.value/100 || 0.0001; 
     if(AudioSys.gain) AudioSys.gain.gain.value = Game.vol; 
@@ -919,7 +901,20 @@ View.els.groove.addEventListener('change', e => {
     Game.pIndex = 0;
 });
 
-// Button bindings
+// Latency Fine Tuning
+View.els.btnLatMinus.addEventListener('click', () => {
+    let val = parseInt(View.els.inLat.value) - 5;
+    if(val < 0) val = 0;
+    View.els.inLat.value = val;
+    Game.latency = val / 1000;
+});
+View.els.btnLatPlus.addEventListener('click', () => {
+    let val = parseInt(View.els.inLat.value) + 5;
+    if(val > 400) val = 400;
+    View.els.inLat.value = val;
+    Game.latency = val / 1000;
+});
+
 View.els.calibBtn.addEventListener('click', e => Game.startCalibration(e));
 
 View.els.skipLink.addEventListener('click', async e => {
@@ -956,9 +951,7 @@ document.getElementById('btnCloseOverlay').addEventListener('click', (e) => {
     View.resetGameUI();
 });
 
-// Global Overlay Click
 View.els.overlay.addEventListener('click', e => {
-    // Allow clicking through to close "CLEAR" screen, but prevent if buttons clicked
     if(Game.calibrating) return;
     if(e.target.tagName === "BUTTON") return;
     if(View.els.restartBtn.style.display === 'block') {
@@ -966,7 +959,6 @@ View.els.overlay.addEventListener('click', e => {
          View.resetGameUI();
     }
 });
-
 </script>
 </body>
 </html>
